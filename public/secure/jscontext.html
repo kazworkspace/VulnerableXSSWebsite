@@ -86,7 +86,7 @@
 <span class="c-gray">// ── Attack 2: Script tag close ──</span>
 <span class="c-gray">// Input:    &lt;/script&gt;&lt;script&gt;alert(1)//</span>
 <span class="c-gray">// After JSON.stringify():  "&lt;/script&gt;&lt;script&gt;alert(1)//"</span>
-<span class="c-gray">// After &lt;, &gt;, / encoding: "</script><script>alert(1)//"</span>
+<span class="c-gray">// After &lt;, &gt;, / encoding: "\\u003c\\u002fscript\\u003e\\u003cscript\\u003ealert(1)//"</span>
 <span class="c-gray">// HTML parser: sees no &lt;/script&gt; tag — block stays open → no execution ✅</span>
 <span class="c-gray">// JS engine:   < decoded to &lt; — value is the original string ✅</span></div>
       </div>
