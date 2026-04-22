@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reflected XSS — Secure</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <nav class="topnav">
+    <a href="/" class="nav-home">&#8962; Home</a>
+    <span class="badge" style="background:#f0fdf4;color:#16a34a;border:1.5px solid #16a34a">SECURE</span>
+    <a href="/vulnerable/reflected.html" class="switch-btn switch-to-vuln">← View Vulnerable Version</a>
+  </nav>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>Reflected XSS — Secure</h1>
+      <p>Same search page, same URL parameter — but the server HTML-encodes the value before embedding it. Payloads display as text, never execute.</p>
+    </div>
+
+    <div class="note secure">
+      <span>&#10003;</span>
+      <div><strong>Fix applied:</strong> <code>escapeHtml(q)</code> converts <code>&lt;</code> → <code>&amp;lt;</code>, <code>&gt;</code> → <code>&amp;gt;</code>, <code>"</code> → <code>&amp;quot;</code>, etc. Browser renders literal characters, not HTML tags.</div>
+    </div>
+
+    <!-- Try It -->
+    <p class="section-title">Try It — Same Payloads, No Effect</p>
+    <div class="try-it-box">
+      <div class="try-label">&#10003; Secure Search</div>
+      <form class="demo-form" id="searchForm">
+        <input type="text" id="searchInput" placeholder="Paste a payload — it will display as plain text..." autocomplete="off">
+        <button type="submit" class="btn btn-secure">Search (Secure)</button>
+      </form>
+      <p class="try-it-hint">Opens <code>/api/search/safe?q=YOUR_INPUT</code> — server escapes before rendering. Script tags become visible text.</p>
+    </div>
+
+    <!-- Payload chips -->
+    <p class="section-title">Test These Payloads — They Should Be Inert</p>
+    <div class="payloads">
+      <h3>Click to load, then click Search — nothing executes</h3>
+      <button class="payload-tag" data-target="searchInput" data-payload="<script>alert('Reflected XSS')</script>">&lt;script&gt;alert('Reflected XSS')&lt;/script&gt;</button>
+      <button class="payload-tag" data-target="searchInput" data-payload="<img src=x onerror=alert(document.cookie)>">&lt;img src=x onerror=alert(document.cookie)&gt;</button>
+      <button class="payload-tag" data-target="searchInput" data-payload='"><svg onload=alert(1)>'>&quot;&gt;&lt;svg onload=alert(1)&gt;</button>
+    </div>
+
+    <!-- Fix code -->
+    <p class="section-title">The Fix</p>
+    <div class="demo-grid">
+      <div class="panel">
+        <div class="panel-header vuln">&#128308; Before (Vulnerable)</div>
+        <div class="panel-body">
+          <div class="code-block"><span class="c-purple">const</span> q = req.query.q || <span class="c-green">''</span>;
+
+<span class="c-gray">// ❌ Raw — tags execute</span>
+res.<span class="c-yellow">send</span>(`&lt;p&gt;<span class="c-red">${q}</span>&lt;/p&gt;`);</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header secure">&#128994; After (Secure)</div>
+        <div class="panel-body">
+          <div class="code-block"><span class="c-purple">const</span> q    = req.query.q || <span class="c-green">''</span>;
+<span class="c-purple">const</span> safe = <span class="c-yellow">escapeHtml</span>(q); <span class="c-gray">// ✅</span>
+
+res.<span class="c-yellow">send</span>(`&lt;p&gt;<span class="c-green">${safe}</span>&lt;/p&gt;`);</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- escapeHtml reference -->
+    <p class="section-title">The escapeHtml Function</p>
+    <div class="panel">
+      <div class="panel-header code">&#128220; Encode all 5 HTML special characters</div>
+      <div class="panel-body">
+        <div class="code-block"><span class="c-purple">function</span> <span class="c-yellow">escapeHtml</span>(str) {
+  <span class="c-purple">return</span> <span class="c-yellow">String</span>(str)
+    .<span class="c-yellow">replace</span>(<span class="c-red">/&amp;/g</span>,  <span class="c-green">'&amp;amp;'</span>)   <span class="c-gray">// ← MUST be first</span>
+    .<span class="c-yellow">replace</span>(<span class="c-red">/&lt;/g</span>,  <span class="c-green">'&amp;lt;'</span>)
+    .<span class="c-yellow">replace</span>(<span class="c-red">/&gt;/g</span>,  <span class="c-green">'&amp;gt;'</span>)
+    .<span class="c-yellow">replace</span>(<span class="c-red">/"/g</span>,   <span class="c-green">'&amp;quot;'</span>)
+    .<span class="c-yellow">replace</span>(<span class="c-red">/'/g</span>,   <span class="c-green">'&amp;#x27;'</span>);
+}</div>
+        <div class="note info" style="margin-bottom:0;margin-top:10px">
+          <span>&#9432;</span>
+          <div><code>&amp;</code> must be replaced first — otherwise later replacements would double-encode it (e.g., <code>&amp;lt;</code> → <code>&amp;amp;lt;</code>).</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Defense in depth -->
+    <p class="section-title">Defense in Depth</p>
+    <div class="panel">
+      <div class="panel-header code">&#128220; Additional headers on secure routes</div>
+      <div class="panel-body">
+        <div class="code-block"><span class="c-gray">// Blocks inline scripts if escaping is bypassed</span>
+res.<span class="c-yellow">set</span>(<span class="c-green">'Content-Security-Policy'</span>,
+  <span class="c-green">"script-src 'self'; object-src 'none'"</span>);
+
+<span class="c-gray">// Session cookie inaccessible from JS</span>
+res.<span class="c-yellow">cookie</span>(<span class="c-green">'session'</span>, token, {
+  httpOnly: <span class="c-purple">true</span>,  <span class="c-gray">// ← JS cannot read this</span>
+  secure:   <span class="c-purple">true</span>,
+  sameSite: <span class="c-green">'strict'</span>
+});</div>
+      </div>
+    </div>
+
+    <a href="/" class="btn btn-back">← Back to All Demos</a>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    document.querySelectorAll('.payload-tag[data-target]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.target);
+        if (!input) return;
+        input.value = btn.dataset.payload;
+        input.focus();
+        btn.classList.add('filled');
+        setTimeout(() => btn.classList.remove('filled'), 1200);
+        showToast('✓ Payload loaded — click Search to see it defanged');
+      });
+    });
+
+    document.getElementById('searchForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const q = document.getElementById('searchInput').value;
+      window.open('/api/search/safe?q=' + encodeURIComponent(q), '_blank');
+    });
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2200);
+    }
+  </script>
+</body>
+</html>

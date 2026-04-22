@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stored XSS — Secure</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <nav class="topnav">
+    <a href="/" class="nav-home">&#8962; Home</a>
+    <span class="badge" style="background:#f0fdf4;color:#16a34a;border:1.5px solid #16a34a">SECURE</span>
+    <a href="/vulnerable/stored.html" class="switch-btn switch-to-vuln">← View Vulnerable Version</a>
+  </nav>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>Stored XSS — Secure</h1>
+      <p>Same comment board — every field is HTML-escaped at render time. Scripts stored in the database display as literal text, not live markup.</p>
+    </div>
+
+    <div class="note secure">
+      <span>&#10003;</span>
+      <div><strong>Fix applied:</strong> Raw data is stored as-is (no modification on save). <code>escapeHtml()</code> wraps every field at render time — <code>&lt;script&gt;</code> becomes <code>&amp;lt;script&amp;gt;</code> in the HTML response.</div>
+    </div>
+
+    <!-- Quick poster -->
+    <p class="section-title">Try It — Post the Same Payloads</p>
+    <div class="quick-post">
+      <h3>&#10003; Click a payload to post it to the secure board</h3>
+      <p>Posts as "Attacker" — then opens the secure board. Scripts display as visible text, nothing executes.</p>
+      <button class="payload-tag" onclick="postPayload('<script>alert(\'Stored XSS\')<\/script>')">&lt;script&gt;alert('Stored XSS')&lt;/script&gt;</button>
+      <button class="payload-tag" onclick="postPayload('<img src=x onerror=alert(document.cookie)>')">&lt;img src=x onerror=alert(document.cookie)&gt;</button>
+      <button class="payload-tag" onclick="postPayload('<script>document.body.innerHTML=\'Defaced\'<\/script>')">&lt;script&gt;document.body.innerHTML='Defaced'&lt;/script&gt;</button>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:24px">
+      <p style="font-size:.875rem;color:#4b5563;margin-bottom:10px">Or open the secure board directly:</p>
+      <a href="/api/comments/safe" class="btn btn-secure" target="_blank">Open Secure Comment Board &#8599;</a>
+    </div>
+
+    <!-- Key concept -->
+    <p class="section-title">Critical Concept — Encode at Output, Not at Input</p>
+    <div class="panel" style="margin-bottom:20px">
+      <div class="panel-header code">&#128161; Why store raw and encode at render?</div>
+      <div class="panel-body">
+        <div class="code-block"><span class="c-gray">// ❌ WRONG: sanitize before storing</span>
+<span class="c-gray">// Problem: destroys original data + double-encoding bugs</span>
+db.<span class="c-yellow">save</span>({ body: <span class="c-yellow">escapeHtml</span>(userInput) });
+<span class="c-gray">// "I &lt;3 coding" stored as "I &amp;lt;3 coding"</span>
+<span class="c-gray">// Shown to user as:  "I &amp;lt;3 coding"  ← wrong</span>
+
+<span class="c-gray">// ✅ CORRECT: store raw, escape at render time</span>
+db.<span class="c-yellow">save</span>({ body: userInput });          <span class="c-gray">// stored: "I &lt;3 coding"</span>
+html += <span class="c-yellow">escapeHtml</span>(row.body);           <span class="c-gray">// rendered: "I &amp;lt;3 coding"</span>
+<span class="c-gray">// Shown to user as:  "I &lt;3 coding"   ← correct</span></div>
+      </div>
+    </div>
+
+    <!-- Code comparison -->
+    <p class="section-title">Code — The Fix</p>
+    <div class="demo-grid">
+      <div class="panel">
+        <div class="panel-header vuln">&#128308; Before (Vulnerable)</div>
+        <div class="panel-body">
+          <div class="code-block"><span class="c-gray">// ❌ Raw injection into HTML</span>
+`&lt;div class="comment-body"&gt;
+  <span class="c-red">${c.body}</span>
+&lt;/div&gt;`</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header secure">&#128994; After (Secure)</div>
+        <div class="panel-body">
+          <div class="code-block"><span class="c-gray">// ✅ Escape every field at render</span>
+`&lt;div class="comment-body"&gt;
+  <span class="c-green">${escapeHtml(c.body)}</span>
+&lt;/div&gt;`</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DOMPurify note -->
+    <p class="section-title">When You Must Allow HTML (Rich Text)</p>
+    <div class="panel">
+      <div class="panel-header code">&#128220; Use DOMPurify — never regex</div>
+      <div class="panel-body">
+        <div class="code-block"><span class="c-gray">// ✅ Allowlist-based HTML sanitizer</span>
+<span class="c-purple">import</span> DOMPurify <span class="c-purple">from</span> <span class="c-green">'dompurify'</span>;
+
+<span class="c-purple">const</span> clean = DOMPurify.<span class="c-yellow">sanitize</span>(userHtml, {
+  ALLOWED_TAGS: [<span class="c-green">'b'</span>, <span class="c-green">'i'</span>, <span class="c-green">'em'</span>, <span class="c-green">'strong'</span>, <span class="c-green">'a'</span>],
+  ALLOWED_ATTR: [<span class="c-green">'href'</span>]
+});
+
+<span class="c-gray">// ❌ Never use regex to strip tags — bypassable</span>
+input.<span class="c-red">replace</span>(<span class="c-red">/&lt;script.*?&gt;.*?&lt;\/script&gt;/gi</span>, <span class="c-green">''</span>)
+<span class="c-gray">// Bypass: &lt;scr&lt;script&gt;ipt&gt;alert(1)&lt;/scr&lt;/script&gt;ipt&gt;</span></div>
+        <div class="note info" style="margin-top:8px;margin-bottom:0">
+          <span>&#9432;</span>
+          <div>Regex-based stripping is always bypassable. Use a proper HTML parser like DOMPurify for rich text.</div>
+        </div>
+      </div>
+    </div>
+
+    <a href="/" class="btn btn-back">← Back to All Demos</a>
+  </main>
+
+  <script>
+    function postPayload(payload) {
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/api/comments/safe';
+      form.target = '_blank';
+
+      const author = document.createElement('input');
+      author.name = 'author';
+      author.value = 'Attacker';
+
+      const body = document.createElement('input');
+      body.name = 'body';
+      body.value = payload;
+
+      form.appendChild(author);
+      form.appendChild(body);
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DOM XSS — Secure</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <nav class="topnav">
+    <a href="/" class="nav-home">&#8962; Home</a>
+    <span class="badge" style="background:#f0fdf4;color:#16a34a;border:1.5px solid #16a34a">SECURE</span>
+    <a href="/vulnerable/dom.html" class="switch-btn switch-to-vuln">← View Vulnerable Version</a>
+  </nav>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>DOM-based XSS — Secure</h1>
+      <p>Same widget — <code>innerHTML</code> replaced with <code>append()</code>. Strings passed to <code>append()</code> become Text nodes — the browser never parses them as HTML.</p>
+    </div>
+
+    <div class="note secure">
+      <span>&#10003;</span>
+      <div><strong>Fix applied:</strong> <code>Node.append(str)</code> creates a Text node. Any <code>&lt;img onerror=...&gt;</code> in the hash displays as the literal string — no element is created, no event fires.</div>
+    </div>
+
+    <!-- Live widget -->
+    <p class="section-title">Try It — Same Payloads, No Effect</p>
+    <div class="try-it-box">
+      <div class="try-label">&#10003; Secure — append() Text nodes</div>
+      <p style="font-size:.85rem;color:#6b7280;margin-bottom:12px">Widget reads your name from <code>location.hash</code> — safely using <code>append()</code>.</p>
+      <div id="greeting" style="font-size:1.05rem;padding:14px;background:#f0fdf4;border:1px solid #86efac;border-radius:6px;min-height:46px;margin-bottom:12px">Loading...</div>
+      <div class="demo-form">
+        <input type="text" id="nameInput" placeholder="Enter a name or payload..." autocomplete="off">
+        <button class="btn btn-secure" onclick="testPayload()">Set Name (Secure)</button>
+      </div>
+      <p class="try-it-hint">Tags display as literal text — nothing executes.</p>
+    </div>
+
+    <!-- Payload chips -->
+    <p class="section-title">Test These Payloads — They Are Inert</p>
+    <div class="payloads">
+      <h3>Click to load, then click Set Name — watch them render as plain text</h3>
+      <button class="payload-tag" data-target="nameInput" data-payload="<img src=x onerror=alert('DOM XSS')>">&lt;img src=x onerror=alert('DOM XSS')&gt;</button>
+      <button class="payload-tag" data-target="nameInput" data-payload="<svg onload=alert(document.cookie)>">&lt;svg onload=alert(document.cookie)&gt;</button>
+      <button class="payload-tag" data-target="nameInput" data-payload="<details open ontoggle=alert(1)>">&lt;details open ontoggle=alert(1)&gt;</button>
+    </div>
+
+    <!-- Code comparison -->
+    <p class="section-title">The Fix</p>
+    <div class="demo-grid">
+      <div class="panel">
+        <div class="panel-header vuln">&#128308; Before (Vulnerable)</div>
+        <div class="panel-body">
+          <div class="code-block"><span class="c-gray">// ❌ innerHTML — parses HTML</span>
+el.<span class="c-red">innerHTML</span> =
+  <span class="c-green">`Hello, ${name}!`</span>;</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header secure">&#128994; After (Secure)</div>
+        <div class="panel-body">
+          <div class="code-block"><span class="c-gray">// ✅ append() — Text nodes only</span>
+el.<span class="c-yellow">replaceChildren</span>();
+el.<span class="c-yellow">append</span>(
+  <span class="c-green">'Hello, '</span>, name, <span class="c-green">'!'</span>
+);</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Safe vs dangerous APIs -->
+    <p class="section-title">Safe APIs vs Dangerous Sinks — Reference</p>
+    <div class="demo-grid">
+      <div class="panel">
+        <div class="panel-header vuln">&#128308; Dangerous — parse HTML</div>
+        <div class="panel-body">
+          <div class="code-block"><span class="c-red">el.innerHTML</span>         = input;
+<span class="c-red">el.outerHTML</span>         = input;
+<span class="c-red">document.write</span>(input);
+<span class="c-red">el.insertAdjacentHTML</span>
+  (<span class="c-green">'...'</span>, input);
+<span class="c-red">eval</span>(input);
+<span class="c-red">setTimeout</span>(input, 0);
+<span class="c-red">location.href</span> = input;</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header secure">&#128994; Safe — Text nodes</div>
+        <div class="panel-body">
+          <div class="code-block"><span class="c-green">el.textContent</span>       = input;
+el.<span class="c-yellow">append</span>(input);
+el.<span class="c-yellow">setAttribute</span>(
+  <span class="c-green">'data-x'</span>, input);
+<span class="c-gray">// When HTML needed:</span>
+el.<span class="c-green">innerHTML</span> =
+  DOMPurify.<span class="c-yellow">sanitize</span>(input);</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DOM sources -->
+    <p class="section-title">Attacker-Controlled DOM Sources</p>
+    <div class="panel">
+      <div class="panel-header code">&#128308; Never trust these without validation</div>
+      <div class="panel-body">
+        <div class="code-block"><span class="c-red">location.hash</span>      <span class="c-gray">// never sent to server ← this demo</span>
+<span class="c-red">location.search</span>    <span class="c-gray">// URL query string</span>
+<span class="c-red">document.referrer</span>  <span class="c-gray">// HTTP Referer</span>
+<span class="c-red">document.cookie</span>    <span class="c-gray">// if attacker controls a cookie</span>
+<span class="c-red">localStorage</span>       <span class="c-gray">// persists across sessions</span>
+<span class="c-red">window.name</span>        <span class="c-gray">// survives navigation</span>
+<span class="c-red">postMessage</span>        <span class="c-gray">// cross-frame data</span></div>
+      </div>
+    </div>
+
+    <a href="/" class="btn btn-back">← Back to All Demos</a>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // SECURE: append() creates Text nodes — never parses HTML
+    function renderGreeting() {
+      const name = decodeURIComponent(location.hash.slice(1));
+      const el = document.getElementById('greeting');
+      el.replaceChildren();
+      if (!name) {
+        el.textContent = 'Enter a name above to see the greeting.';
+        return;
+      }
+      // ✅ Secure — Text node, no HTML parsing
+      el.append('Hello, ', name, '!');
+    }
+
+    function testPayload() {
+      const val = document.getElementById('nameInput').value;
+      location.hash = encodeURIComponent(val);
+      renderGreeting();
+    }
+
+    document.querySelectorAll('.payload-tag[data-target]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.target);
+        if (!input) return;
+        input.value = btn.dataset.payload;
+        input.focus();
+        btn.classList.add('filled');
+        setTimeout(() => btn.classList.remove('filled'), 1200);
+        showToast('✓ Payload loaded — click Set Name to see it defanged');
+      });
+    });
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    window.addEventListener('hashchange', renderGreeting);
+    renderGreeting();
+  </script>
+</body>
+</html>

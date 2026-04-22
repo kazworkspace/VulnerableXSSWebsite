@@ -1,0 +1,239 @@
+/* ── Challenge System Styles ── */
+
+/* Win banner */
+.win-banner {
+  background: linear-gradient(135deg, #14532d 0%, #166534 100%);
+  color: #fff;
+  padding: 16px 24px;
+  position: sticky;
+  top: 53px;
+  z-index: 99;
+  box-shadow: 0 4px 12px rgba(22,101,52,.4);
+}
+.win-inner {
+  max-width: 880px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.win-icon { font-size: 1.8rem; flex-shrink: 0; }
+.win-inner strong { font-size: 1rem; display: block; margin-bottom: 2px; }
+.win-inner p { font-size: .85rem; color: #bbf7d0; margin: 0; }
+
+/* Challenge header */
+.ch-header {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--gray-200);
+}
+.ch-meta {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.ch-num-large {
+  font-size: 3rem;
+  font-weight: 900;
+  color: var(--gray-200);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.ch-meta h1  { font-size: 1.5rem; font-weight: 800; margin-bottom: 4px; }
+.ch-difficulty { font-size: .8rem; font-weight: 700; letter-spacing: .06em; }
+
+.ch-num-badge {
+  font-size: .75rem;
+  font-weight: 700;
+  background: var(--gray-900);
+  color: #e5e7eb;
+  padding: 3px 10px;
+  border-radius: 99px;
+}
+
+/* Filter description box */
+.filter-box {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-left: 4px solid #f59e0b;
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: .875rem;
+  margin-bottom: 20px;
+  color: #78350f;
+}
+
+/* Challenge form box */
+.ch-form-box {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.ch-form-box label {
+  display: block;
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--gray-600);
+  margin-bottom: 6px;
+}
+.ch-form-box input,
+.ch-form-box textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  font-size: .9rem;
+  font-family: var(--font-sans);
+  background: var(--gray-50);
+  transition: border-color .15s;
+  margin-bottom: 10px;
+}
+.ch-form-box input:focus,
+.ch-form-box textarea:focus { outline: none; border-color: var(--blue); background: #fff; }
+.ch-form-box textarea { resize: vertical; min-height: 80px; }
+.ch-form-box p { font-size: .875rem; margin-bottom: 12px; }
+
+/* Output display */
+.ch-output {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 16px;
+  font-size: .9rem;
+  word-break: break-word;
+}
+
+/* Source note */
+.ch-source {
+  font-size: .8rem;
+  color: var(--gray-400);
+  margin-bottom: 20px;
+  padding: 8px 12px;
+  background: var(--gray-100);
+  border-radius: 4px;
+}
+
+/* Hints box */
+.hints-box {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-top: 24px;
+  box-shadow: var(--shadow);
+}
+.hints-title {
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: 10px;
+}
+.hint-item {
+  border-top: 1px solid var(--gray-100);
+  padding: 8px 0;
+}
+.hint-item:first-of-type { border-top: none; }
+.hint-item summary {
+  font-size: .85rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--gray-600);
+  padding: 4px 0;
+  user-select: none;
+}
+.hint-item summary:hover { color: var(--blue); }
+.hint-item p {
+  font-size: .85rem;
+  color: var(--gray-600);
+  margin-top: 6px;
+  padding-left: 12px;
+  line-height: 1.6;
+}
+
+/* ── Challenge Hub Page ── */
+.ch-hub-hero {
+  text-align: center;
+  padding: 48px 0 32px;
+}
+.ch-hub-hero h1 { font-size: 2rem; font-weight: 900; margin-bottom: 10px; }
+.ch-hub-hero p  { color: var(--gray-600); font-size: 1rem; max-width: 500px; margin: 0 auto; }
+
+.ch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.ch-card {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow .15s, transform .1s;
+  position: relative;
+}
+.ch-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.ch-card.solved { border-color: #86efac; background: var(--green-light); }
+
+.ch-card-num {
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--gray-200);
+  line-height: 1;
+}
+.ch-card.solved .ch-card-num { color: #bbf7d0; }
+
+.ch-card-title { font-size: .95rem; font-weight: 700; }
+.ch-card-diff  { font-size: .75rem; font-weight: 700; letter-spacing: .06em; }
+.ch-card-desc  { font-size: .8rem; color: var(--gray-600); flex: 1; }
+.ch-card-arrow { font-size: .9rem; color: var(--gray-400); margin-top: auto; align-self: flex-end; }
+
+.ch-solved-badge {
+  position: absolute;
+  top: 12px; right: 12px;
+  background: var(--green);
+  color: #fff;
+  font-size: .65rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+
+.ch-card-secure {
+  background: linear-gradient(135deg, #1e1b4b, #312e81);
+  border-color: #4338ca;
+  color: #fff;
+}
+.ch-card-secure .ch-card-num  { color: #4338ca; }
+.ch-card-secure .ch-card-desc { color: #c7d2fe; }
+.ch-card-secure .ch-card-arrow{ color: #818cf8; }
+.ch-card-secure:hover { box-shadow: 0 8px 20px rgba(99,102,241,.3); }
+
+.ch-progress {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: var(--shadow);
+}
+.ch-progress-label { font-size: .85rem; font-weight: 700; color: var(--gray-600); flex-shrink: 0; }
+.ch-progress-bar-wrap { flex: 1; background: var(--gray-100); border-radius: 99px; height: 8px; }
+.ch-progress-bar { background: var(--green); height: 8px; border-radius: 99px; transition: width .4s; }
+.ch-progress-count { font-size: .85rem; font-weight: 700; color: var(--gray-600); flex-shrink: 0; }

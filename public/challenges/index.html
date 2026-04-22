@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XSS Challenge Lab</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/challenges.css">
+</head>
+<body>
+  <nav class="topnav">
+    <a href="/" class="nav-home">&#8962; XSS Demo Lab</a>
+    <span class="badge" style="background:#f5f3ff;color:#7c3aed;border:1.5px solid #7c3aed">CHALLENGES</span>
+  </nav>
+
+  <main class="container">
+    <div class="ch-hub-hero">
+      <h1>&#127981; XSS Challenge Lab</h1>
+      <p>Eight vulnerability challenges + one unbreakable secure form. Find the injection point, craft a payload, get <code>alert()</code> to fire.</p>
+    </div>
+
+    <div class="ch-progress">
+      <span class="ch-progress-label">Progress</span>
+      <div class="ch-progress-bar-wrap">
+        <div class="ch-progress-bar" id="progressBar" style="width:0%"></div>
+      </div>
+      <span class="ch-progress-count" id="progressCount">0 / 8 solved</span>
+    </div>
+
+    <div class="ch-grid" id="chGrid">
+
+      <a href="/api/challenges/1" class="ch-card" data-ch="1">
+        <div class="ch-card-num">1</div>
+        <div class="ch-card-title">Basic Reflected XSS</div>
+        <div class="ch-card-diff" style="color:#16a34a">Easy</div>
+        <div class="ch-card-desc">No filter. Raw input reflected into HTML. The starting point.</div>
+        <div class="ch-card-arrow">→</div>
+      </a>
+
+      <a href="/api/challenges/2" class="ch-card" data-ch="2">
+        <div class="ch-card-num">2</div>
+        <div class="ch-card-title">Script Tag Filter</div>
+        <div class="ch-card-diff" style="color:#16a34a">Easy</div>
+        <div class="ch-card-desc"><code>&lt;script&gt;</code> is stripped. Find a tag that executes JS without it.</div>
+        <div class="ch-card-arrow">→</div>
+      </a>
+
+      <a href="/api/challenges/3" class="ch-card" data-ch="3">
+        <div class="ch-card-num">3</div>
+        <div class="ch-card-title">Aggressive Filter Bypass</div>
+        <div class="ch-card-diff" style="color:#d97706">Medium</div>
+        <div class="ch-card-desc">Script tags, <code>on*</code> handlers, and <code>javascript:</code> are all stripped. Get creative.</div>
+        <div class="ch-card-arrow">→</div>
+      </a>
+
+      <a href="/api/challenges/4" class="ch-card" data-ch="4">
+        <div class="ch-card-num">4</div>
+        <div class="ch-card-title">Attribute Context</div>
+        <div class="ch-card-diff" style="color:#d97706">Medium</div>
+        <div class="ch-card-desc">Input lands in an unquoted HTML attribute. Escape the attribute, inject a handler.</div>
+        <div class="ch-card-arrow">→</div>
+      </a>
+
+      <a href="/api/challenges/5" class="ch-card" data-ch="5">
+        <div class="ch-card-num">5</div>
+        <div class="ch-card-title">JS String Context</div>
+        <div class="ch-card-diff" style="color:#d97706">Medium</div>
+        <div class="ch-card-desc">Input embedded in a <code>&lt;script&gt;</code> block string literal. Break out of the string.</div>
+        <div class="ch-card-arrow">→</div>
+      </a>
+
+      <a href="/api/challenges/6" class="ch-card" data-ch="6">
+        <div class="ch-card-num">6</div>
+        <div class="ch-card-title">User-Agent Header</div>
+        <div class="ch-card-diff" style="color:#dc2626">Hard</div>
+        <div class="ch-card-desc">The browser sends it — forms don't control it. Use curl or Burp to inject via HTTP header.</div>
+        <div class="ch-card-arrow">→</div>
+      </a>
+
+      <a href="/api/challenges/7" class="ch-card" data-ch="7">
+        <div class="ch-card-num">7</div>
+        <div class="ch-card-title">Stored XSS</div>
+        <div class="ch-card-diff" style="color:#dc2626">Hard</div>
+        <div class="ch-card-desc">Post a payload to a comment board. It persists and fires for every visitor.</div>
+        <div class="ch-card-arrow">→</div>
+      </a>
+
+      <a href="/api/challenges/8" class="ch-card" data-ch="8">
+        <div class="ch-card-num">8</div>
+        <div class="ch-card-title">href Injection</div>
+        <div class="ch-card-diff" style="color:#dc2626">Hard</div>
+        <div class="ch-card-desc"><code>escapeHtml()</code> is applied — but it's the wrong defense for URL context.</div>
+        <div class="ch-card-arrow">→</div>
+      </a>
+
+      <a href="/api/challenges/secure" class="ch-card ch-card-secure">
+        <div class="ch-card-num">S</div>
+        <div class="ch-card-title">The Secure Form</div>
+        <div class="ch-card-diff" style="color:#818cf8">Expert</div>
+        <div class="ch-card-desc">All defenses active. Try every payload you know — nothing executes here.</div>
+        <div class="ch-card-arrow" style="color:#818cf8">→</div>
+      </a>
+
+    </div>
+
+    <div class="callout warn">
+      <strong>&#9888; Rules:</strong> Solve each challenge by making <code>alert()</code> fire. The page detects it automatically. Use any tool — browser, curl, Burp Suite.
+    </div>
+
+    <p class="footer-note">XSS Challenge Lab &nbsp;·&nbsp; localhost only</p>
+  </main>
+
+  <script>
+    const TOTAL = 8;
+    function updateProgress() {
+      let solved = 0;
+      document.querySelectorAll('.ch-card[data-ch]').forEach(card => {
+        const n = card.dataset.ch;
+        if (localStorage.getItem('ch_solved_' + n)) {
+          solved++;
+          card.classList.add('solved');
+          if (!card.querySelector('.ch-solved-badge')) {
+            const b = document.createElement('span');
+            b.className = 'ch-solved-badge';
+            b.textContent = 'SOLVED';
+            card.appendChild(b);
+          }
+        }
+      });
+      const pct = (solved / TOTAL) * 100;
+      document.getElementById('progressBar').style.width = pct + '%';
+      document.getElementById('progressCount').textContent = solved + ' / ' + TOTAL + ' solved';
+    }
+    updateProgress();
+  </script>
+</body>
+</html>

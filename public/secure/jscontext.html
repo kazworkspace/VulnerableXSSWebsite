@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JS Context XSS — Secure</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <nav class="topnav">
+    <a href="/" class="nav-home">&#8962; Home</a>
+    <span class="badge" style="background:#f0fdf4;color:#16a34a;border:1.5px solid #16a34a">SECURE</span>
+    <a href="/vulnerable/jscontext.html" class="switch-btn switch-to-vuln">← View Vulnerable Version</a>
+  </nav>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>JS Context XSS — Secure</h1>
+      <p>Same theme configurator — input is processed with <code>safeJsonForScript()</code> before insertion into the <code>&lt;script&gt;</code> block. Payloads stay trapped inside the string value.</p>
+    </div>
+
+    <div class="note secure">
+      <span>&#10003;</span>
+      <div><strong>Fix applied:</strong> <code>JSON.stringify()</code> quotes and escapes the value for JS string context. Additional encoding converts <code>&lt;</code>, <code>&gt;</code>, <code>/</code> to Unicode escapes — prevents <code>&lt;/script&gt;</code> from closing the block early.</div>
+    </div>
+
+    <!-- Try It -->
+    <p class="section-title">Try It — Same Payloads, No Effect</p>
+    <div class="try-it-box">
+      <div class="try-label">&#10003; Secure — safeJsonForScript()</div>
+      <p style="font-size:.85rem;color:#6b7280;margin-bottom:12px">Color is encoded with <code>JSON.stringify()</code> + Unicode escaping before insertion into the script block.</p>
+      <div class="demo-form">
+        <input type="text" id="colorInput" value="lightblue" placeholder="Enter a color or payload..." autocomplete="off">
+        <button class="btn btn-secure" onclick="sendTheme()">Apply Theme (Secure)</button>
+      </div>
+      <p class="try-it-hint">Opens <code>/api/theme/safe?color=YOUR_INPUT</code> — payloads stay inert inside the string.</p>
+    </div>
+
+    <!-- Payload chips -->
+    <p class="section-title">Test These Payloads — They Should Be Inert</p>
+    <div class="payloads">
+      <h3>Click to load, then click Apply Theme — nothing executes</h3>
+      <button class="payload-tag" data-target="colorInput" data-payload='lightblue"; alert("JS Context XSS");//'>lightblue&quot;; alert(&quot;JS Context XSS&quot;);//</button>
+      <button class="payload-tag" data-target="colorInput" data-payload='"; alert(document.cookie);//'>&quot;; alert(document.cookie);//</button>
+      <button class="payload-tag" data-target="colorInput" data-payload="</script><script>alert('script tag closed')//">&lt;/script&gt;&lt;script&gt;alert('script tag closed')//</button>
+    </div>
+
+    <!-- The safeJsonForScript function -->
+    <p class="section-title">The Fix — safeJsonForScript()</p>
+    <div class="panel" style="margin-bottom:20px">
+      <div class="panel-header code">&#128994; Two layers of protection</div>
+      <div class="panel-body">
+        <div class="code-block"><span class="c-purple">function</span> <span class="c-yellow">safeJsonForScript</span>(value) {
+  <span class="c-purple">return</span> <span class="c-yellow">JSON</span>.<span class="c-yellow">stringify</span>(value)
+
+    <span class="c-gray">// Layer 1: JSON.stringify() wraps in quotes + escapes " as \"</span>
+    <span class="c-gray">// Input:  lightblue"; alert(1);//</span>
+    <span class="c-gray">// Output: "lightblue\"; alert(1);//"   ← " escaped, string intact</span>
+
+    <span class="c-gray">// Layer 2: encode &lt; &gt; / to Unicode escapes</span>
+    <span class="c-gray">// Prevents &lt;/script&gt; from closing the &lt;script&gt; block early</span>
+    .<span class="c-yellow">replace</span>(<span class="c-red">/&lt;/g</span>,  <span class="c-green">'\u003c'</span>)   <span class="c-gray">// &lt; → <</span>
+    .<span class="c-yellow">replace</span>(<span class="c-red">/&gt;/g</span>,  <span class="c-green">'\u003e'</span>)   <span class="c-gray">// &gt; → ></span>
+    .<span class="c-yellow">replace</span>(<span class="c-red">/\//g</span>, <span class="c-green">'\u002f'</span>);  <span class="c-gray">// / → /</span>
+    <span class="c-gray">// HTML parser never sees &lt;/script&gt; — block stays open ✅</span>
+    <span class="c-gray">// JS engine decodes < back to &lt; — value stays correct ✅</span>
+}</div>
+        <div class="note info" style="margin-top:10px;margin-bottom:0">
+          <span>&#9432;</span>
+          <div><code>JSON.stringify()</code> alone is not enough — it does not encode <code>/</code>, so <code>&lt;/script&gt;</code> in a value would still close the script tag. The extra <code>.replace()</code> calls prevent this.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trace through -->
+    <p class="section-title">Step-by-Step — What the Fix Does</p>
+    <div class="panel" style="margin-bottom:20px">
+      <div class="panel-header code">&#128220; Payload trace for both attack types</div>
+      <div class="panel-body">
+        <div class="code-block"><span class="c-gray">// ── Attack 1: String breakout ──</span>
+<span class="c-gray">// Input:    lightblue"; alert(1);//</span>
+<span class="c-gray">// After JSON.stringify():  "lightblue\"; alert(1);//"</span>
+<span class="c-gray">// Script block renders:    var bgColor = "lightblue\"; alert(1);//";</span>
+<span class="c-gray">// JS sees: \" = escaped quote — string never closes → no execution ✅</span>
+
+<span class="c-gray">// ── Attack 2: Script tag close ──</span>
+<span class="c-gray">// Input:    &lt;/script&gt;&lt;script&gt;alert(1)//</span>
+<span class="c-gray">// After JSON.stringify():  "&lt;/script&gt;&lt;script&gt;alert(1)//"</span>
+<span class="c-gray">// After &lt;, &gt;, / encoding: "</script><script>alert(1)//"</span>
+<span class="c-gray">// HTML parser: sees no &lt;/script&gt; tag — block stays open → no execution ✅</span>
+<span class="c-gray">// JS engine:   < decoded to &lt; — value is the original string ✅</span></div>
+      </div>
+    </div>
+
+    <!-- Why escapeHtml fails -->
+    <p class="section-title">Why escapeHtml() Is the Wrong Fix Here</p>
+    <div class="panel" style="margin-bottom:20px">
+      <div class="panel-header code">&#128308; Context mismatch — wrong tool for the job</div>
+      <div class="panel-body">
+        <div class="code-block"><span class="c-gray">// Suppose someone "fixes" it with escapeHtml() instead:</span>
+<span class="c-purple">const</span> color = <span class="c-yellow">escapeHtml</span>(req.query.color);
+<span class="c-gray">// Input:  lightblue"; alert(1);//</span>
+<span class="c-gray">// Output: lightblue&amp;quot;; alert(1);//</span>
+
+<span class="c-gray">// Rendered inside &lt;script&gt;:</span>
+<span class="c-green">var bgColor = "lightblue&amp;quot;; alert(1);//";</span>
+
+<span class="c-gray">// In a &lt;script&gt; block, HTML entities are NOT decoded by the JS engine.</span>
+<span class="c-gray">// &amp;quot; = literal 6-character string, NOT a quote → string does close ✅</span>
+<span class="c-gray">// ...but escapeHtml() is still the wrong tool because:</span>
+
+<span class="c-gray">// ❌ Single-quote context:  var x = '${color}';</span>
+<span class="c-gray">//    payload: '; alert(1);//  → escapeHtml encodes " not ' → breaks out</span>
+
+<span class="c-gray">// ❌ No-quote context:      var x = ${color};</span>
+<span class="c-gray">//    any JS expression works — not a string at all</span>
+
+<span class="c-gray">// ❌ Template literal:      var x = `${color}`;</span>
+<span class="c-gray">//    payload: ${alert(1)} → escapeHtml does not encode $ { }</span>
+
+<span class="c-gray">// ✅ JSON.stringify() is designed for this — works for all cases above.</span></div>
+      </div>
+    </div>
+
+    <!-- Alternative: data attribute -->
+    <p class="section-title">Cleanest Alternative — data-* Attribute</p>
+    <div class="panel">
+      <div class="panel-header code">&#128220; Pass server data to JS via DOM, not inline script</div>
+      <div class="panel-body">
+        <div class="code-block"><span class="c-gray">&lt;!-- Server renders — escapeHtml() for HTML attribute context --&gt;</span>
+&lt;div id="app" data-color="<span class="c-green">${escapeHtml(color)}</span>"&gt;&lt;/div&gt;
+
+<span class="c-gray">&lt;!-- Client JS reads it safely --&gt;</span>
+&lt;script&gt;
+  <span class="c-gray">// ✅ Reads from DOM attribute — no script injection possible</span>
+  <span class="c-purple">const</span> color = document
+    .<span class="c-yellow">getElementById</span>(<span class="c-green">'app'</span>)
+    .dataset.color;
+  document.body.style.background = color;
+&lt;/script&gt;</div>
+        <div class="note info" style="margin-top:10px;margin-bottom:0">
+          <span>&#9432;</span>
+          <div>Cleanest approach — data travels as an HTML attribute (HTML-escaped at render time), never embedded in a script block. Zero risk of JS string injection from server-side rendering.</div>
+        </div>
+      </div>
+    </div>
+
+    <a href="/" class="btn btn-back">← Back to All Demos</a>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    function sendTheme() {
+      const color = document.getElementById('colorInput').value;
+      window.open('/api/theme/safe?color=' + encodeURIComponent(color), '_blank');
+    }
+
+    document.querySelectorAll('.payload-tag[data-target]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.target);
+        if (!input) return;
+        input.value = btn.dataset.payload;
+        input.focus();
+        btn.classList.add('filled');
+        setTimeout(() => btn.classList.remove('filled'), 1200);
+        showToast('✓ Payload loaded — click Apply Theme to see it defanged');
+      });
+    });
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2200);
+    }
+  </script>
+</body>
+</html>

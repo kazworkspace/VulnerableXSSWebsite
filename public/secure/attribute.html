@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attribute Context XSS — Secure</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <nav class="topnav">
+    <a href="/" class="nav-home">&#8962; Home</a>
+    <span class="badge" style="background:#f0fdf4;color:#16a34a;border:1.5px solid #16a34a">SECURE</span>
+    <a href="/vulnerable/attribute.html" class="switch-btn switch-to-vuln">← View Vulnerable Version</a>
+  </nav>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>Attribute Context XSS — Secure</h1>
+      <p>Same profile page — each case fixed with the correct technique. Paste the same attack payloads to verify they are inert.</p>
+    </div>
+
+    <div class="note secure">
+      <span>&#10003;</span>
+      <div><strong>Rule:</strong> Match the defense to the context. HTML body → <code>escapeHtml()</code>. Attribute → quote + <code>escapeHtml()</code>. URL/href → scheme allowlist first, then <code>escapeHtml()</code>.</div>
+    </div>
+
+    <!-- Case A -->
+    <p class="section-title">Case A — Unquoted Attribute → Fixed</p>
+    <div class="attr-scenario">
+      <div class="scenario-label secure">&#128994; Fixed: Quote + escapeHtml()</div>
+      <p class="scenario-desc">
+        Fix: <strong>always quote attributes</strong> + <code>escapeHtml()</code> on the value.<br>
+        Quotes trap the value — a space can't start a new attribute. <code>"</code> → <code>&amp;quot;</code> — cannot close the quote.
+      </p>
+      <div class="demo-form" style="margin-bottom:10px">
+        <input type="text" id="colorInput" value="lightblue" placeholder='Try: red" onmouseover="alert(1)' autocomplete="off">
+      </div>
+      <div class="payloads" style="margin-bottom:10px">
+        <h3>Click to load — payload renders as inert text</h3>
+        <button class="payload-tag" data-target="colorInput" data-payload='red" onmouseover="alert(&apos;Case A&apos;)'>red&quot; onmouseover=&quot;alert('Case A')&quot;</button>
+      </div>
+      <p class="payload-hint secure-hint">&#10003; Event handler never attaches — payload displays as literal text in the style value.</p>
+    </div>
+
+    <!-- Case B -->
+    <p class="section-title">Case B — Quoted Attribute Breakout → Fixed</p>
+    <div class="attr-scenario">
+      <div class="scenario-label secure">&#128994; Fixed: escapeHtml() encodes &quot;</div>
+      <p class="scenario-desc">
+        Fix: <code>escapeHtml()</code> converts <code>"</code> → <code>&amp;quot;</code>.<br>
+        The payload's quote is trapped inside the value string — no new attribute can be injected.
+      </p>
+      <div class="demo-form" style="margin-bottom:10px">
+        <input type="text" id="usernameInput" value="Alice" placeholder='" autofocus onfocus="alert(1)' autocomplete="off">
+      </div>
+      <div class="payloads" style="margin-bottom:10px">
+        <h3>Click to load — &quot; becomes &amp;quot; in the rendered HTML</h3>
+        <button class="payload-tag" data-target="usernameInput" data-payload='" autofocus onfocus="alert(&apos;Case B&apos;)'>&quot; autofocus onfocus=&quot;alert('Case B')&quot;</button>
+      </div>
+      <p class="payload-hint secure-hint">&#10003; <code>"</code> becomes <code>&amp;quot;</code> — attribute never breaks, no new attributes injected.</p>
+    </div>
+
+    <!-- Case C -->
+    <p class="section-title">Case C — href javascript: Injection → Fixed</p>
+    <div class="attr-scenario">
+      <div class="scenario-label secure">&#128994; Fixed: URL allowlist + escapeHtml()</div>
+      <p class="scenario-desc">
+        Fix: <code>safeUrl()</code> checks scheme first — only <code>http:</code>/<code>https:</code> pass.
+        Then <code>escapeHtml()</code> encodes any remaining HTML chars.
+        <strong>Order matters</strong> — allowlist first, then encode.
+      </p>
+      <div class="demo-form" style="margin-bottom:10px">
+        <input type="text" id="websiteInput" value="https://example.com" placeholder="javascript:alert(document.cookie)" autocomplete="off">
+      </div>
+      <div class="payloads" style="margin-bottom:10px">
+        <h3>Click to load — all dangerous schemes are blocked</h3>
+        <button class="payload-tag" data-target="websiteInput" data-payload="javascript:alert('Case C')">javascript:alert('Case C')</button>
+        <button class="payload-tag" data-target="websiteInput" data-payload="JAVASCRIPT:alert(1)">JAVASCRIPT:alert(1) &nbsp;← mixed case — still blocked</button>
+        <button class="payload-tag" data-target="websiteInput" data-payload="data:text/html,<script>alert(1)</script>">data:text/html,&lt;script&gt;...</button>
+        <button class="payload-tag" data-target="websiteInput" data-payload="//evil.com">//evil.com &nbsp;← protocol-relative — blocked</button>
+      </div>
+      <p class="payload-hint secure-hint">&#10003; All blocked schemes → href becomes <code>#blocked</code> — click is harmless.</p>
+    </div>
+
+    <!-- Case D -->
+    <p class="section-title">Case D — Unquoted data-* Attribute → Fixed</p>
+    <div class="attr-scenario">
+      <div class="scenario-label secure">&#128994; Fixed: Quote + escapeHtml()</div>
+      <p class="scenario-desc">
+        Fix: wrap the attribute value in quotes <strong>and</strong> apply <code>escapeHtml()</code>.<br>
+        <code>data-toolbar="<strong>${escapeHtml(toolbar)}</strong>"</code><br>
+        Quotes trap the value — a space can't start a new attribute.
+        Any injected <code>"</code> becomes <code>&amp;quot;</code> and cannot close the quote.
+      </p>
+      <div class="demo-form" style="margin-bottom:10px">
+        <input type="text" id="toolbarInput" value="#toolbar" placeholder="#t onmouseover=alert(1)" autocomplete="off">
+      </div>
+      <div class="payloads" style="margin-bottom:10px">
+        <h3>Click to load — payloads are trapped as inert text</h3>
+        <button class="payload-tag" data-target="toolbarInput" data-payload="#t onmouseover=alert('Case D')">#t onmouseover=alert('Case D')</button>
+        <button class="payload-tag" data-target="toolbarInput" data-payload="#t onfocus=alert(1) autofocus">#t onfocus=alert(1) autofocus</button>
+      </div>
+      <p class="payload-hint secure-hint">&#10003; Space stays inside the quoted value — no new attribute injected.</p>
+    </div>
+
+    <button class="btn btn-secure" style="margin-bottom:24px" onclick="sendProfile()">Open Secure Profile Page &#8599;</button>
+
+    <!-- Fix comparison -->
+    <p class="section-title">Code — The Fixes Side by Side</p>
+    <div class="demo-grid">
+      <div class="panel">
+        <div class="panel-header vuln">&#128308; Before (Vulnerable)</div>
+        <div class="panel-body">
+          <div class="code-block"><span class="c-gray">// Case A — no quotes</span>
+`style=background:<span class="c-red">${color}</span>`
+
+<span class="c-gray">// Case B — quoted, not escaped</span>
+`value="<span class="c-red">${username}</span>"`
+
+<span class="c-gray">// Case C — no scheme check</span>
+`href="<span class="c-red">${website}</span>"`
+
+<span class="c-gray">// Case D — unquoted data attribute</span>
+`data-toolbar=<span class="c-red">${toolbar}</span>`</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header secure">&#128994; After (Secure)</div>
+        <div class="panel-body">
+          <div class="code-block"><span class="c-gray">// Case A — quoted + escaped</span>
+`style="background:<span class="c-green">${escapeHtml(color)}</span>"`
+
+<span class="c-gray">// Case B — quoted + escaped</span>
+`value="<span class="c-green">${escapeHtml(username)}</span>"`
+
+<span class="c-gray">// Case C — allowlist + escaped</span>
+`href="<span class="c-green">${escapeHtml(safeUrl(website))}</span>"`
+
+<span class="c-gray">// Case D — quoted + escaped</span>
+`data-toolbar="<span class="c-green">${escapeHtml(toolbar)}</span>"`</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- safeUrl reference -->
+    <p class="section-title">The safeUrl() Function</p>
+    <div class="panel">
+      <div class="panel-header code">&#128220; Allowlist approach — reject anything not http/https</div>
+      <div class="panel-body">
+        <div class="code-block"><span class="c-purple">function</span> <span class="c-yellow">safeUrl</span>(url) {
+  <span class="c-purple">try</span> {
+    <span class="c-purple">const</span> parsed = <span class="c-purple">new</span> <span class="c-yellow">URL</span>(url);
+    <span class="c-gray">// URL spec normalizes scheme to lowercase:</span>
+    <span class="c-gray">// "JAVASCRIPT:" → "javascript:" → blocked ✅</span>
+    <span class="c-purple">if</span> ([<span class="c-green">'http:'</span>, <span class="c-green">'https:'</span>].<span class="c-yellow">includes</span>(parsed.protocol))
+      <span class="c-purple">return</span> url;
+    <span class="c-purple">return</span> <span class="c-green">'#blocked'</span>;         <span class="c-gray">// javascript:, data:, vbscript:</span>
+  } <span class="c-purple">catch</span> {
+    <span class="c-gray">// Allow relative paths like /page — reject //evil.com</span>
+    <span class="c-purple">if</span> (url.<span class="c-yellow">startsWith</span>(<span class="c-green">'/'</span>) && !url.<span class="c-yellow">startsWith</span>(<span class="c-green">'//'</span>))
+      <span class="c-purple">return</span> url;
+    <span class="c-purple">return</span> <span class="c-green">'#blocked'</span>;
+  }
+}</div>
+      </div>
+    </div>
+
+    <!-- Context map -->
+    <p class="section-title">Full XSS Context → Correct Defense Map</p>
+    <div class="panel">
+      <div class="panel-header code">&#128220; Match the function to where the value lands</div>
+      <div class="panel-body">
+        <div class="code-block"><span class="c-gray">// HTML body (between tags)</span>
+`&lt;p&gt;<span class="c-green">${escapeHtml(input)}</span>&lt;/p&gt;`
+
+<span class="c-gray">// HTML attribute — MUST quote + escape</span>
+`&lt;div class="<span class="c-green">${escapeHtml(input)}</span>"&gt;`
+
+<span class="c-gray">// URL attribute (href, src, action)</span>
+`&lt;a href="<span class="c-green">${escapeHtml(safeUrl(input))}</span>"&gt;`
+
+<span class="c-gray">// Inside &lt;script&gt; block — JSON.stringify, NOT escapeHtml</span>
+`<span class="c-green">var x = ${safeJsonForScript(input)};</span>`
+
+<span class="c-gray">// URL query parameter</span>
+`/search?q=<span class="c-green">${encodeURIComponent(input)}</span>`
+
+<span class="c-gray">// Rich text (user HTML preserved) — sanitize with DOMPurify</span>
+el.innerHTML = DOMPurify.<span class="c-yellow">sanitize</span>(input);</div>
+        <div class="note info" style="margin-top:10px;margin-bottom:0">
+          <span>&#9432;</span>
+          <div><code>escapeHtml()</code> in a <code>&lt;script&gt;</code> block is the wrong tool — see the JS Context XSS scenario for why and the correct fix.</div>
+        </div>
+      </div>
+    </div>
+
+    <a href="/" class="btn btn-back">← Back to All Demos</a>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    function sendProfile() {
+      const color    = document.getElementById('colorInput').value;
+      const username = document.getElementById('usernameInput').value;
+      const website  = document.getElementById('websiteInput').value;
+      const toolbar  = document.getElementById('toolbarInput').value;
+      const url = `/api/profile/safe?color=${encodeURIComponent(color)}&username=${encodeURIComponent(username)}&website=${encodeURIComponent(website)}&toolbar=${encodeURIComponent(toolbar)}`;
+      window.open(url, '_blank');
+    }
+
+    document.querySelectorAll('.payload-tag[data-target]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.target);
+        if (!input) return;
+        input.value = btn.dataset.payload;
+        input.focus();
+        btn.classList.add('filled');
+        setTimeout(() => btn.classList.remove('filled'), 1200);
+        showToast('✓ Payload loaded — click Open Profile Page');
+      });
+    });
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2200);
+    }
+  </script>
+</body>
+</html>

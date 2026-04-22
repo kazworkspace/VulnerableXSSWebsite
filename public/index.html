@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XSS Demo Lab — Educational</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <nav class="topnav">
+    <a href="/" class="nav-home">&#8962; XSS Demo Lab</a>
+    <span class="badge" style="background:#fef9c3;color:#854d0e;border:1.5px solid #ca8a04">EDUCATIONAL</span>
+  </nav>
+
+  <main class="container">
+    <div class="hero">
+      <h1>XSS Vulnerability Lab</h1>
+      <p>Interactive demos for all XSS types and injection contexts. Each scenario has a vulnerable version you can exploit and a secure version that shows the correct fix.</p>
+    </div>
+
+    <div class="callout warn">
+      <strong>&#9888; Educational Use Only.</strong> This lab intentionally contains insecure code. Run only on <code>localhost</code>. Never deploy the vulnerable routes to a public server.
+    </div>
+
+    <div class="challenges-cta">
+      <div>
+        <h2>&#127981; Ready to test your skills?</h2>
+        <p>Eight hands-on XSS challenges — easy to expert. Find the injection point, craft a payload, make <code>alert()</code> fire.</p>
+      </div>
+      <a href="/challenges" class="btn btn-challenge-cta">Go to Challenge Lab →</a>
+    </div>
+
+    <div class="xss-types">
+
+      <!-- 1. Reflected XSS -->
+      <div class="type-card">
+        <h2>&#128269; Reflected XSS</h2>
+        <p>Payload travels in the URL. Server reflects it raw into the HTML response. One-shot — requires victim to click a crafted link.</p>
+        <div class="links">
+          <a href="/vulnerable/reflected.html" class="btn btn-vuln">Vulnerable</a>
+          <a href="/secure/reflected.html" class="btn btn-secure">Secure</a>
+        </div>
+      </div>
+
+      <!-- 2. Stored XSS -->
+      <div class="type-card">
+        <h2>&#128190; Stored XSS</h2>
+        <p>Payload is saved to the database and served raw to every visitor. Most dangerous — no interaction needed beyond normal browsing.</p>
+        <div class="links">
+          <a href="/vulnerable/stored.html" class="btn btn-vuln">Vulnerable</a>
+          <a href="/secure/stored.html" class="btn btn-secure">Secure</a>
+        </div>
+      </div>
+
+      <!-- 3. DOM XSS -->
+      <div class="type-card">
+        <h2>&#128196; DOM-based XSS</h2>
+        <p>Payload stays in the URL fragment (<code>#...</code>) — never sent to the server. Client-side JS reads it and writes to <code>innerHTML</code>. Invisible to server logs and WAFs.</p>
+        <div class="links">
+          <a href="/vulnerable/dom.html" class="btn btn-vuln">Vulnerable</a>
+          <a href="/secure/dom.html" class="btn btn-secure">Secure</a>
+        </div>
+      </div>
+
+      <!-- 4. Attribute Context XSS -->
+      <div class="type-card">
+        <h2>&#128268; Attribute Context XSS</h2>
+        <p>Input lands inside HTML attributes: unquoted attribute injection, quoted breakout via <code>"</code>, and <code>javascript:</code> URL in <code>href</code>. Three sub-cases, three different fixes.</p>
+        <div class="links">
+          <a href="/vulnerable/attribute.html" class="btn btn-vuln">Vulnerable</a>
+          <a href="/secure/attribute.html" class="btn btn-secure">Secure</a>
+        </div>
+      </div>
+
+      <!-- 5. JS Context XSS -->
+      <div class="type-card">
+        <h2>&#128187; JS Context XSS</h2>
+        <p>Input lands inside a <code>&lt;script&gt;</code> block. <code>escapeHtml()</code> is the <em>wrong</em> fix here. Correct tool: <code>JSON.stringify()</code> + Unicode encoding for <code>&lt;/script&gt;</code> injection.</p>
+        <div class="links">
+          <a href="/vulnerable/jscontext.html" class="btn btn-vuln">Vulnerable</a>
+          <a href="/secure/jscontext.html" class="btn btn-secure">Secure</a>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Attack flow -->
+    <p class="section-title">How Each Type Works</p>
+    <div class="how-it-works">
+      <h2>Attack flow comparison</h2>
+      <ul class="step-list">
+        <li>
+          <span class="step-num">R</span>
+          <div><strong>Reflected:</strong> Crafted URL → victim clicks → server embeds raw input in response → browser executes as trusted-site script.</div>
+        </li>
+        <li>
+          <span class="step-num">S</span>
+          <div><strong>Stored:</strong> Attacker submits payload → stored raw in DB → every page load serves script to all visitors → browser executes.</div>
+        </li>
+        <li>
+          <span class="step-num">D</span>
+          <div><strong>DOM-based:</strong> Payload in <code>#fragment</code> → client JS reads it → <code>innerHTML</code> executes it. Server never sees the payload — bypasses WAFs and server logs.</div>
+        </li>
+        <li>
+          <span class="step-num">A</span>
+          <div><strong>Attribute context:</strong> Payload injected into HTML attribute — breaks out of the attribute via <code>"</code> or injects <code>javascript:</code> URL. <code>escapeHtml()</code> fixes A+B but NOT C (href scheme injection).</div>
+        </li>
+        <li>
+          <span class="step-num">J</span>
+          <div><strong>JS context:</strong> Payload inside a <code>&lt;script&gt;</code> block — <code>"</code> closes the string literal, rest executes as code. Fix is <code>JSON.stringify()</code> + encode <code>&lt;&gt;/</code>, not <code>escapeHtml()</code>.</div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Defense summary -->
+    <p class="section-title">Defense Summary</p>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08)">
+      <table style="width:100%;border-collapse:collapse;font-size:.875rem">
+        <thead>
+          <tr style="border-bottom:2px solid #e5e7eb">
+            <th style="text-align:left;padding:8px 12px;color:#6b7280;font-weight:700">Injection Context</th>
+            <th style="text-align:left;padding:8px 12px;color:#6b7280;font-weight:700">Correct Defense</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid #f3f4f6">
+            <td style="padding:8px 12px">HTML body content</td>
+            <td style="padding:8px 12px;font-family:monospace;color:#16a34a">escapeHtml(value)</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f3f4f6">
+            <td style="padding:8px 12px">HTML attribute (always quote!)</td>
+            <td style="padding:8px 12px;font-family:monospace;color:#16a34a">escapeHtml(value)</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f3f4f6">
+            <td style="padding:8px 12px">URL attribute (href, src, action)</td>
+            <td style="padding:8px 12px;font-family:monospace;color:#16a34a">escapeHtml(safeUrl(value))</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f3f4f6">
+            <td style="padding:8px 12px">Inside &lt;script&gt; block</td>
+            <td style="padding:8px 12px;font-family:monospace;color:#16a34a">safeJsonForScript(value)</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f3f4f6">
+            <td style="padding:8px 12px">URL query parameter</td>
+            <td style="padding:8px 12px;font-family:monospace;color:#16a34a">encodeURIComponent(value)</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px">Rich text (user HTML)</td>
+            <td style="padding:8px 12px;font-family:monospace;color:#16a34a">DOMPurify.sanitize(value)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="footer-note">Educational lab for blog article: "XSS — Detection and Fixing" &nbsp;·&nbsp; localhost only</p>
+  </main>
+</body>
+</html>

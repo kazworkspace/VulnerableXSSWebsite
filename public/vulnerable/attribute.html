@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attribute Context XSS — Vulnerable</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <nav class="topnav">
+    <a href="/" class="nav-home">&#8962; Home</a>
+    <span class="badge" style="background:#fef2f2;color:#dc2626;border:1.5px solid #dc2626">VULNERABLE</span>
+    <a href="/secure/attribute.html" class="switch-btn switch-to-secure">View Secure Version →</a>
+  </nav>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>Attribute Context XSS</h1>
+      <p>User input lands inside HTML attributes — three distinct injection patterns. <code>escapeHtml()</code> alone does not fix all of them. Each requires a specific defense.</p>
+    </div>
+
+    <div class="note vuln">
+      <span>&#9888;</span>
+      <div><strong>Key insight:</strong> The right defense depends on the injection context. Same function, wrong context = still vulnerable.</div>
+    </div>
+
+    <!-- Case A -->
+    <p class="section-title">Case A — Unquoted Attribute</p>
+    <div class="attr-scenario">
+      <div class="scenario-label vuln">&#128308; Vulnerable</div>
+      <p class="scenario-desc">
+        Value injected without quotes: <code>&lt;div style="background:COLOR"&gt;</code><br>
+        A space in the payload ends the attribute and starts a new one — injects event handler.
+      </p>
+      <div class="demo-form" style="margin-bottom:10px">
+        <input type="text" id="colorInput" value="lightblue" placeholder='Try: red" onmouseover="alert(1)' autocomplete="off">
+      </div>
+      <div class="payloads" style="margin-bottom:10px">
+        <h3>Click to load payload into Case A field</h3>
+        <button class="payload-tag" data-target="colorInput" data-payload='red" onmouseover="alert(&apos;Case A&apos;)'>red&quot; onmouseover=&quot;alert('Case A')&quot;</button>
+        <button class="payload-tag" data-target="colorInput" data-payload='blue" style="x:expression(alert(1))'>blue&quot; style=&quot;x:expression(alert(1))&quot;</button>
+      </div>
+      <p class="payload-hint">&#128161; Hover the card after submitting — event handler fires on mouse enter.</p>
+    </div>
+
+    <!-- Case B -->
+    <p class="section-title">Case B — Quoted Attribute Breakout</p>
+    <div class="attr-scenario">
+      <div class="scenario-label vuln">&#128308; Vulnerable</div>
+      <p class="scenario-desc">
+        Value inside quotes but not escaped: <code>&lt;input value="USERNAME"&gt;</code><br>
+        A <code>"</code> in the payload closes the attribute — the rest becomes new HTML attributes.
+      </p>
+      <div class="demo-form" style="margin-bottom:10px">
+        <input type="text" id="usernameInput" value="Alice" placeholder='" autofocus onfocus="alert(1)' autocomplete="off">
+      </div>
+      <div class="payloads" style="margin-bottom:10px">
+        <h3>Click to load payload into Case B field</h3>
+        <button class="payload-tag" data-target="usernameInput" data-payload='" autofocus onfocus="alert(&apos;Case B&apos;)'>&quot; autofocus onfocus=&quot;alert('Case B')&quot;</button>
+        <button class="payload-tag" data-target="usernameInput" data-payload='" onmouseover="alert(document.cookie)'>&quot; onmouseover=&quot;alert(document.cookie)&quot;</button>
+      </div>
+      <p class="payload-hint">&#128161; Input auto-focuses on page load when the payload is active.</p>
+    </div>
+
+    <!-- Case C -->
+    <p class="section-title">Case C — href javascript: Injection</p>
+    <div class="attr-scenario">
+      <div class="scenario-label vuln">&#128308; Vulnerable</div>
+      <p class="scenario-desc">
+        User-supplied URL placed directly in <code>href</code>.<br>
+        <code>javascript:alert(1)</code> has <strong>no HTML special characters</strong> —
+        <code>escapeHtml()</code> passes it unchanged. Browser executes it as JavaScript on click.
+      </p>
+      <div class="demo-form" style="margin-bottom:10px">
+        <input type="text" id="websiteInput" value="https://example.com" placeholder="javascript:alert(document.cookie)" autocomplete="off">
+      </div>
+      <div class="payloads" style="margin-bottom:10px">
+        <h3>Click to load payload into Case C field</h3>
+        <button class="payload-tag" data-target="websiteInput" data-payload="javascript:alert('Case C — javascript: URL')">javascript:alert('Case C — javascript: URL')</button>
+        <button class="payload-tag" data-target="websiteInput" data-payload="javascript:alert(document.cookie)">javascript:alert(document.cookie)</button>
+        <button class="payload-tag" data-target="websiteInput" data-payload="JAVASCRIPT:alert(1)">JAVASCRIPT:alert(1) &nbsp;← mixed case</button>
+        <button class="payload-tag" data-target="websiteInput" data-payload="data:text/html,<script>alert(1)</script>">data:text/html,&lt;script&gt;alert(1)&lt;/script&gt;</button>
+      </div>
+      <p class="payload-hint">&#128161; Click "Visit website" on the result page — <code>javascript:</code> URL executes.</p>
+    </div>
+
+    <!-- Case D -->
+    <p class="section-title">Case D — Unquoted data-* Attribute</p>
+    <div class="attr-scenario">
+      <div class="scenario-label vuln">&#128308; Vulnerable</div>
+      <p class="scenario-desc">
+        Toolbar selector injected into an unquoted <code>data-toolbar</code> attribute:<br>
+        <code>&lt;table data-toolbar=SELECTOR&gt;</code><br>
+        No quotes around the value — a space ends the attribute and starts a new one.
+        Payload: <code>#t onmouseover=alert(1)</code> injects a mouseover handler.
+      </p>
+      <div class="demo-form" style="margin-bottom:10px">
+        <input type="text" id="toolbarInput" value="#toolbar" placeholder="#t onmouseover=alert(1)" autocomplete="off">
+      </div>
+      <div class="payloads" style="margin-bottom:10px">
+        <h3>Click to load payload into Case D field</h3>
+        <button class="payload-tag" data-target="toolbarInput" data-payload="#t onmouseover=alert('Case D')">#t onmouseover=alert('Case D')</button>
+        <button class="payload-tag" data-target="toolbarInput" data-payload="#t onfocus=alert(1) autofocus">#t onfocus=alert(1) autofocus</button>
+      </div>
+      <p class="payload-hint">&#128161; Hover the table on the result page — event handler fires.</p>
+    </div>
+
+    <button class="btn btn-vuln" style="margin-bottom:24px" onclick="sendProfile()">Open Vulnerable Profile Page &#8599;</button>
+
+    <!-- Code panel -->
+    <p class="section-title">Code — Why Each Case Is Vulnerable</p>
+    <div class="panel">
+      <div class="panel-header vuln">&#128308; VULNERABLE — /api/profile route</div>
+      <div class="panel-body">
+        <div class="code-block"><span class="c-gray">// Case A — no quotes, no escaping</span>
+<span class="c-green">`&lt;div style="background:</span><span class="c-red">${color}</span><span class="c-green">"&gt;`</span>
+<span class="c-gray">// payload: red" onmouseover="alert(1)
+// result:  &lt;div style="background:red" onmouseover="alert(1)"&gt;</span>
+
+<span class="c-gray">// Case B — quoted but not escaped</span>
+<span class="c-green">`&lt;input value="</span><span class="c-red">${username}</span><span class="c-green">"&gt;`</span>
+<span class="c-gray">// payload: " autofocus onfocus="alert(1)
+// result:  &lt;input value="" autofocus onfocus="alert(1)"&gt;</span>
+
+<span class="c-gray">// Case C — no URL scheme check</span>
+<span class="c-green">`&lt;a href="</span><span class="c-red">${website}</span><span class="c-green">"&gt;Visit&lt;/a&gt;`</span>
+<span class="c-gray">// escapeHtml("javascript:alert(1)") = "javascript:alert(1)" — unchanged!
+// No HTML special chars in javascript: URLs.</span>
+
+<span class="c-gray">// Case D — unquoted data-* attribute</span>
+<span class="c-green">`&lt;table data-toolbar=</span><span class="c-red">${toolbar}</span><span class="c-green">&gt;`</span>
+<span class="c-gray">// payload: #t onmouseover=alert(1)
+// result:  &lt;table data-toolbar=#t onmouseover=alert(1)&gt;
+// Space ends the attribute value — onmouseover becomes a new attribute.</span></div>
+      </div>
+    </div>
+
+    <!-- Attack flow -->
+    <div class="how-it-works">
+      <h2>Why escapeHtml() Alone Fails for Case C</h2>
+      <ul class="step-list">
+        <li><span class="step-num">1</span><div><code>escapeHtml()</code> only encodes: <code>&amp;</code> <code>&lt;</code> <code>&gt;</code> <code>"</code> <code>'</code></div></li>
+        <li><span class="step-num">2</span><div><code>javascript:alert(1)</code> contains none of those characters.</div></li>
+        <li><span class="step-num">3</span><div><code>escapeHtml("javascript:alert(1)")</code> returns <code>"javascript:alert(1)"</code> — identical output.</div></li>
+        <li><span class="step-num">4</span><div>Browser sees valid <code>href="javascript:alert(1)"</code> and executes it as JS on click.</div></li>
+        <li><span class="step-num">5</span><div>Fix: <strong>URL scheme allowlist first</strong> — reject anything that isn't <code>http:</code> or <code>https:</code>.</div></li>
+      </ul>
+    </div>
+
+    <a href="/" class="btn btn-back">← Back to All Demos</a>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    function sendProfile() {
+      const color    = document.getElementById('colorInput').value;
+      const username = document.getElementById('usernameInput').value;
+      const website  = document.getElementById('websiteInput').value;
+      const toolbar  = document.getElementById('toolbarInput').value;
+      const url = `/api/profile?color=${encodeURIComponent(color)}&username=${encodeURIComponent(username)}&website=${encodeURIComponent(website)}&toolbar=${encodeURIComponent(toolbar)}`;
+      window.open(url, '_blank');
+    }
+
+    document.querySelectorAll('.payload-tag[data-target]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.target);
+        if (!input) return;
+        input.value = btn.dataset.payload;
+        input.focus();
+        btn.classList.add('filled');
+        setTimeout(() => btn.classList.remove('filled'), 1200);
+        showToast('✓ Payload loaded — click Open Profile Page');
+      });
+    });
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2000);
+    }
+  </script>
+</body>
+</html>

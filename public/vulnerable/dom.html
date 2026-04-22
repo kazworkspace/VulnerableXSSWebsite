@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DOM XSS — Vulnerable</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <nav class="topnav">
+    <a href="/" class="nav-home">&#8962; Home</a>
+    <span class="badge" style="background:#fef2f2;color:#dc2626;border:1.5px solid #dc2626">VULNERABLE</span>
+    <a href="/secure/dom.html" class="switch-btn switch-to-secure">View Secure Version →</a>
+  </nav>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>DOM-based XSS</h1>
+      <p>Payload lives in the URL fragment (<code>#...</code>). Client-side JavaScript reads it and writes to <code>innerHTML</code> — the server never sees the payload, making it invisible to server-side defenses.</p>
+    </div>
+
+    <div class="note vuln">
+      <span>&#9888;</span>
+      <div><strong>Root cause:</strong> <code>location.hash</code> is read by client JS and injected via <code>innerHTML</code>. The browser parses and executes any HTML/JS in it. The hash is never sent to the server — no logs, no WAF.</div>
+    </div>
+
+    <!-- Live widget -->
+    <p class="section-title">Try It — Greeting Widget</p>
+    <div class="try-it-box">
+      <div class="try-label">&#9888; Vulnerable — innerHTML</div>
+      <p style="font-size:.85rem;color:#6b7280;margin-bottom:12px">Widget reads your name from <code>location.hash</code> and greets you using <code>innerHTML</code>.</p>
+      <div id="greeting" style="font-size:1.05rem;padding:14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;min-height:46px;margin-bottom:12px">Loading...</div>
+      <div class="demo-form">
+        <input type="text" id="nameInput" placeholder="Enter a name or payload..." autocomplete="off">
+        <button class="btn btn-vuln" onclick="testPayload()">Set Name (Vulnerable)</button>
+      </div>
+      <p class="try-it-hint">Sets <code>#YOUR_INPUT</code> in the URL, then injects it via <code>innerHTML</code>.</p>
+    </div>
+
+    <!-- Payload chips -->
+    <p class="section-title">Attack Payloads — Click to Load, Then "Set Name"</p>
+    <div class="payloads">
+      <h3>Click to load into the field above, then click Set Name</h3>
+      <button class="payload-tag" data-target="nameInput" data-payload="<img src=x onerror=alert('DOM XSS')>">&lt;img src=x onerror=alert('DOM XSS')&gt;</button>
+      <button class="payload-tag" data-target="nameInput" data-payload="<svg onload=alert(document.cookie)>">&lt;svg onload=alert(document.cookie)&gt;</button>
+      <button class="payload-tag" data-target="nameInput" data-payload="<details open ontoggle=alert(1)>">&lt;details open ontoggle=alert(1)&gt;</button>
+      <button class="payload-tag" data-target="nameInput" data-payload="<iframe src=javascript:alert(1)>">&lt;iframe src=javascript:alert(1)&gt;</button>
+    </div>
+
+    <!-- Code comparison -->
+    <p class="section-title">Code — Vulnerable vs Secure</p>
+    <div class="demo-grid">
+      <div class="panel">
+        <div class="panel-header vuln">&#128308; VULNERABLE — this page</div>
+        <div class="panel-body">
+          <div class="code-block"><span class="c-purple">const</span> name = <span class="c-yellow">decodeURIComponent</span>(
+  location.hash.<span class="c-yellow">slice</span>(1)
+);
+
+<span class="c-gray">// ❌ innerHTML parses raw HTML</span>
+document
+  .<span class="c-yellow">getElementById</span>(<span class="c-green">'greeting'</span>)
+  .<span class="c-red">innerHTML</span> = <span class="c-green">`Hello, ${name}!`</span>;</div>
+          <div class="note vuln" style="margin-top:8px;margin-bottom:0">
+            <span>&#9888;</span>
+            <span><code>&lt;img onerror=...&gt;</code> in the hash becomes a real element — event fires.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header secure">&#128994; SECURE — /secure/dom.html</div>
+        <div class="panel-body">
+          <div class="code-block"><span class="c-purple">const</span> name = <span class="c-yellow">decodeURIComponent</span>(
+  location.hash.<span class="c-yellow">slice</span>(1)
+);
+
+<span class="c-gray">// ✅ append() creates Text nodes — no HTML parsing</span>
+<span class="c-purple">const</span> el = document
+  .<span class="c-yellow">getElementById</span>(<span class="c-green">'greeting'</span>);
+el.<span class="c-yellow">replaceChildren</span>();
+el.<span class="c-yellow">append</span>(<span class="c-green">'Hello, '</span>, name, <span class="c-green">'!'</span>);</div>
+          <div class="note secure" style="margin-top:8px;margin-bottom:0">
+            <span>&#10003;</span>
+            <span>Strings in <code>append()</code> are Text nodes — <code>&lt;</code> never parsed as HTML.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attack flow -->
+    <div class="how-it-works">
+      <h2>Attack Flow — Why DOM XSS Is Stealthy</h2>
+      <ul class="step-list">
+        <li><span class="step-num">1</span><div>Attacker crafts URL: <code>/vulnerable/dom.html#&lt;img src=x onerror=alert(document.cookie)&gt;</code></div></li>
+        <li><span class="step-num">2</span><div>URL fragment (<code>#...</code>) is <strong>never sent to the server</strong> — no server logs, no WAF sees it.</div></li>
+        <li><span class="step-num">3</span><div>Victim's browser loads the page. Server returns the normal, clean HTML.</div></li>
+        <li><span class="step-num">4</span><div>Client JS reads <code>location.hash</code> and writes it to <code>innerHTML</code>.</div></li>
+        <li><span class="step-num">5</span><div>Browser executes the injected element's event handler. Cookie theft complete. Attack is invisible server-side.</div></li>
+      </ul>
+    </div>
+
+    <!-- Dangerous sinks -->
+    <p class="section-title">DOM XSS — Dangerous Sinks</p>
+    <div class="panel">
+      <div class="panel-header code">&#128308; Avoid these with user-controlled input</div>
+      <div class="panel-body">
+        <div class="code-block"><span class="c-gray">// ❌ HTML-parsing sinks</span>
+el.<span class="c-red">innerHTML</span>                     = userInput;
+el.<span class="c-red">outerHTML</span>                     = userInput;
+document.<span class="c-red">write</span>(userInput);
+el.<span class="c-red">insertAdjacentHTML</span>(<span class="c-green">'...'</span>, userInput);
+
+<span class="c-gray">// ❌ JS-execution sinks</span>
+<span class="c-red">eval</span>(userInput);
+<span class="c-red">setTimeout</span>(userInput, 0);   <span class="c-gray">// string form only</span>
+<span class="c-red">new Function</span>(userInput)();
+
+<span class="c-gray">// ❌ Navigation / URL sinks</span>
+location.<span class="c-red">href</span> = userInput;  <span class="c-gray">// javascript: URL</span>
+el.<span class="c-red">src</span>          = userInput;</div>
+      </div>
+    </div>
+
+    <a href="/" class="btn btn-back">← Back to All Demos</a>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // VULNERABLE: innerHTML with unsanitized hash
+    function renderGreeting() {
+      const name = decodeURIComponent(location.hash.slice(1));
+      if (!name) {
+        document.getElementById('greeting').textContent = 'Enter a name above to see the greeting.';
+        return;
+      }
+      // ❌ Vulnerable line
+      document.getElementById('greeting').innerHTML = 'Hello, ' + name + '!';
+    }
+
+    function testPayload() {
+      const val = document.getElementById('nameInput').value;
+      location.hash = encodeURIComponent(val);
+      renderGreeting();
+    }
+
+    document.querySelectorAll('.payload-tag[data-target]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.target);
+        if (!input) return;
+        input.value = btn.dataset.payload;
+        input.focus();
+        btn.classList.add('filled');
+        setTimeout(() => btn.classList.remove('filled'), 1200);
+        showToast('✓ Payload loaded — click Set Name');
+      });
+    });
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2000);
+    }
+
+    window.addEventListener('hashchange', renderGreeting);
+    renderGreeting();
+  </script>
+</body>
+</html>

