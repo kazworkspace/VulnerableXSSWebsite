@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Stored XSS — Vulnerable</title>
   <link rel="stylesheet" href="/styles.css">
+  <script src="/session-init.js"></script>
 </head>
 <body>
   <nav class="topnav">
@@ -33,6 +34,8 @@
       <button class="payload-tag" onclick="postPayload('<img src=x onerror=alert(document.cookie)>')">&lt;img src=x onerror=alert(document.cookie)&gt;</button>
       <button class="payload-tag" onclick="postPayload('<script>document.body.style.background=\'red\'<\/script>')">&lt;script&gt;document.body.style.background='red'&lt;/script&gt;</button>
       <button class="payload-tag" onclick="postPayload('<script>document.body.innerHTML=\'<h1 style=color:red>&#128480; Page Defaced</h1>\'<\/script>')">&lt;script&gt;document.body.innerHTML='Defaced'&lt;/script&gt;</button>
+      <button class="payload-tag" onclick="postPayload('<script>alert(\'=== STOLEN ===\\nToken: \'+localStorage.sessionToken+\'\\nUser: \'+localStorage.username+\'\\nRole: \'+localStorage.role)<\/script>')">&lt;script&gt;steal localStorage (token, user, role)&lt;/script&gt;</button>
+      <button class="payload-tag" onclick="postPayload('<img src=x onerror=&quot;alert(&apos;Stolen: &apos;+JSON.stringify(localStorage))&quot;>')">&lt;img onerror&gt; dump full localStorage&lt;/img&gt;</button>
     </div>
 
     <!-- Manual board link -->
